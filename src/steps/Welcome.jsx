@@ -1,12 +1,15 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { KompasMessage, InteractiveArea, PrimaryButton } from '../ui'
 import { useOnboarding } from '../OnboardingContext'
 
 export default function Welcome() {
   const { data, setData, nextStep } = useOnboarding()
   const [name, setName] = useState(data.name || '')
+
+  // Keep form in sync when chat updates name
+  useEffect(() => { setName(data.name || '') }, [data.name])
 
   const handleSubmit = () => {
     if (!name.trim()) return

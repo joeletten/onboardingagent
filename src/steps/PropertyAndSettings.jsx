@@ -111,6 +111,46 @@ export default function PropertyAndSettings() {
 
   const localizationFromCountry = !data.settings?.localization
 
+  // Keep forms in sync when chat updates context
+  useEffect(() => {
+    setHotelDetails({
+      name:    data.settings?.hotelDetails?.name    || property?.name    || '',
+      address: data.settings?.hotelDetails?.address || property?.address || '',
+      country: data.settings?.hotelDetails?.country || property?.country || '',
+    })
+  }, [
+    data.settings?.hotelDetails?.name,
+    data.settings?.hotelDetails?.address,
+    data.settings?.hotelDetails?.country,
+  ])
+
+  useEffect(() => {
+    setContact({
+      contactName: data.settings?.contact?.contactName || '',
+      phone:       data.settings?.contact?.phone       || '',
+      email:       data.settings?.contact?.email       || '',
+      website:     data.settings?.contact?.website     || '',
+    })
+  }, [
+    data.settings?.contact?.contactName,
+    data.settings?.contact?.phone,
+    data.settings?.contact?.email,
+    data.settings?.contact?.website,
+  ])
+
+  useEffect(() => {
+    if (!data.settings?.localization) return
+    setLocalization({
+      timezone: data.settings.localization.timezone || countryDefaults.timezone,
+      currency: data.settings.localization.currency || countryDefaults.currency,
+      vatRate:  data.settings.localization.vatRate  || countryDefaults.vatRate,
+    })
+  }, [
+    data.settings?.localization?.timezone,
+    data.settings?.localization?.currency,
+    data.settings?.localization?.vatRate,
+  ])
+
   const tabComplete = {
     hotel: !!(hotelDetails.name && hotelDetails.address && hotelDetails.country),
     contact: !!(contact.contactName && contact.email),
