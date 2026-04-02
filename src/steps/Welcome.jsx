@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect } from 'react'
 import { KompasMessage, InteractiveArea, PrimaryButton } from '../ui'
-import { useOnboarding } from '../OnboardingContext'
+import { useOnboarding, useAgentHighlight } from '../OnboardingContext'
 
 export default function Welcome() {
   const { data, setData, nextStep } = useOnboarding()
+  const nameHighlighted = useAgentHighlight('name')
   const [name, setName] = useState(data.name || '')
 
   // Keep form in sync when chat updates name
@@ -40,9 +41,9 @@ export default function Welcome() {
             onKeyDown={e => e.key === 'Enter' && handleSubmit()}
             placeholder="e.g. Maria"
             autoFocus
-            className="flex-1 max-w-xs px-4 py-2.5 rounded-xl border border-lh-border bg-white text-sm
+            className={`flex-1 max-w-xs px-4 py-2.5 rounded-xl border bg-white text-sm
               focus:outline-none focus:ring-2 focus:ring-kompas-indigo/30 focus:border-kompas-indigo
-              placeholder:text-lh-text-muted transition-all"
+              placeholder:text-lh-text-muted transition-all ${nameHighlighted ? 'agent-highlight' : 'border-lh-border'}`}
           />
           <PrimaryButton onClick={handleSubmit} disabled={!name.trim()}>
             Continue

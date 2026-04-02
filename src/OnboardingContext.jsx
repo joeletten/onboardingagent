@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react'
+import React, { createContext, useContext, useReducer, useEffect, useCallback, useState, useRef } from 'react'
 
 const STORAGE_KEY = 'lighthouse_onboarding'
 
@@ -68,6 +68,31 @@ const OnboardingContext = createContext(null)
 export function OnboardingProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState)
 
+  // Agent highlight system — tracks which data keys were recently modified by the agent
+  // Keys map to timestamp of when they were highlighted; auto-clears after 2s
+  const [highlights, setHighlights] = useState({})
+  const highlightTimers = useRef({})
+
+  const highlightKeys = useCallback((keys) => {
+    const now = Date.now()
+    const newHighlights = {}
+    for (const key of keys) {
+      newHighlights[key] = now
+      // Clear any existing timer for this key
+      if (highlightTimers.current[key]) clearTimeout(highlightTimers.current[key])
+      // Auto-clear after 2s
+      highlightTimers.current[key] = setTimeout(() => {
+        setHighlights(prev => {
+          const next = { ...prev }
+          delete next[key]
+          return next
+        })
+        delete highlightTimers.current[key]
+      }, 2000)
+    }
+    setHighlights(prev => ({ ...prev, ...newHighlights }))
+  }, [])
+
   // Hydrate from localStorage on mount
   useEffect(() => {
     try {
@@ -100,6 +125,7 @@ export function OnboardingProvider({ children }) {
   const setStepReady = useCallback(() => dispatch({ type: 'SET_STEP_READY' }), [])
   const reset = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY)
+    setHighlights({})
     dispatch({ type: 'RESET' })
   }, [])
 
@@ -113,6 +139,8 @@ export function OnboardingProvider({ children }) {
       setTyping,
       setStepReady,
       reset,
+      highlights,
+      highlightKeys,
     }}>
       {children}
     </OnboardingContext.Provider>
@@ -123,4 +151,13 @@ export function useOnboarding() {
   const ctx = useContext(OnboardingContext)
   if (!ctx) throw new Error('useOnboarding must be used within OnboardingProvider')
   return ctx
+}
+
+/**
+ * Hook to check if a specific data key is currently highlighted by the agent.
+ * Returns true if the key was recently modified via chat.
+ */
+export function useAgentHighlight(key) {
+  const { highlights } = useOnboarding()
+  return !!highlights[key]
 }

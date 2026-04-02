@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { KompasMessage, InteractiveArea, Button, Input, Toggle } from '../ui'
-import { useOnboarding } from '../OnboardingContext'
+import { useOnboarding, useAgentHighlight } from '../OnboardingContext'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -273,7 +273,7 @@ function RoomForm({ form, onChange, onSave, onCancel, isFirstRoom, baseRefPrice,
 
 // ── Room Card ─────────────────────────────────────────────────────────────────
 
-function RoomListCard({ room, index, isEditing, currSymbol, baseRefPrice, hasOta, otaLabel, onEdit, onDelete, onSave, onCancel, editForm, onFormChange }) {
+function RoomListCard({ room, index, isEditing, currSymbol, baseRefPrice, hasOta, otaLabel, onEdit, onDelete, onSave, onCancel, editForm, onFormChange, isHighlighted }) {
   const examplePrice = computeExamplePrice(baseRefPrice || 100, room)
   const offsetLabel = formatOffset(room)
 
@@ -283,7 +283,7 @@ function RoomListCard({ room, index, isEditing, currSymbol, baseRefPrice, hasOta
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -4 }}
-      className="bg-white rounded-lg border border-[#e6e9ef] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.04),0px_1px_3px_0px_rgba(0,0,0,0.08)] overflow-hidden"
+      className={`bg-white rounded-lg border border-[#e6e9ef] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.04),0px_1px_3px_0px_rgba(0,0,0,0.08)] overflow-hidden transition-all ${isHighlighted ? 'agent-highlight' : ''}`}
     >
       {/* Header row */}
       <div className="flex items-center gap-3 p-4">
@@ -478,6 +478,7 @@ export default function Rooms() {
     nextStep()
   }
 
+  const roomsHighlighted = useAgentHighlight('rooms')
   const hasPrefill = pmsName && rooms.length > 0
 
   return (
@@ -523,6 +524,7 @@ export default function Rooms() {
                 onCancel={cancelEdit}
                 editForm={editingId === room.id ? editForm : null}
                 onFormChange={(field, val) => setEditForm(f => ({ ...f, [field]: val }))}
+                isHighlighted={roomsHighlighted}
               />
             ))}
           </AnimatePresence>

@@ -442,7 +442,7 @@ export function Field({ label, prefilled = false, children }) {
 //  CHAT / ONBOARDING PRIMITIVES  (unchanged visual character)
 // ─────────────────────────────────────────────────────────────────────────────
 export function KompasOrb({ size = 'md' }) {
-  const px = size === 'lg' ? 'w-24 h-24' : size === 'md' ? 'w-14 h-14' : 'w-8 h-8'
+  const px = size === 'lg' ? 'w-24 h-24' : size === 'md' ? 'w-14 h-14' : size === 'xs' ? 'w-5 h-5' : 'w-8 h-8'
   return (
     <div className={`${px} rounded-full flex-shrink-0 overflow-hidden ring-2 ring-white shadow-sm`}>
       <img

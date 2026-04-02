@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useOnboarding } from './OnboardingContext'
-import { TypingIndicator, KompasOrb, UserMessage } from './ui'
+import { TypingIndicator, KompasOrb } from './ui'
 import { callClaude, executeTool } from './claudeClient'
 
 import Welcome from './steps/Welcome'
@@ -20,89 +20,130 @@ import Competitors from './steps/Competitors'
 import Complete from './steps/Complete'
 
 const STEP_COMPONENTS = [
-  Welcome,
-  Role,
-  PropertyAndSettings,
-  ChannelConnect,
-  PMS,
-  Rooms,
-  Extras,
-  RatePlans,
-  OTA,
-  Distribution,
-  Competitors,
-  Complete,
+  Welcome, Role, PropertyAndSettings, ChannelConnect, PMS,
+  Rooms, Extras, RatePlans, OTA, Distribution, Competitors, Complete,
 ]
 
-function getUserResponse(stepId, data) {
-  switch (stepId) {
-    case 'welcome': return data.name
-    case 'role': return data.role
-    case 'property': {
-      const h = data.settings?.hotelDetails
-      const l = data.settings?.localization
-      return h?.name ? `${h.name} · ${l?.currency || ''}` : data.property?.name
-    }
-    case 'pms': return data.pms ? `Connected to ${data.pms.name}` : 'No PMS — manual setup'
-    case 'ota': {
-      const c = data.otas?.filter(o => o.connected) || []
-      return c.length > 0 ? c.map(o => o.name).join(' & ') : 'Skipped'
-    }
-    case 'rooms': return `${data.rooms?.length || 0} room types confirmed`
-    case 'extras': return data.extras?.length > 0 ? `${data.extras.length} extras & discounts added` : 'No extras added'
-    case 'ratePlans': {
-      const total = data.ratePlans?.length || 0
-      return total > 0 ? `${total} rate plan${total !== 1 ? 's' : ''}` : 'No rate plans'
-    }
-    case 'distribution': {
-      const channelCount = Object.keys(data.distribution || {}).length
-      return channelCount > 0 ? `${channelCount} channel${channelCount !== 1 ? 's' : ''} configured` : 'Configured'
-    }
-    case 'competitors': return `Tracking ${data.competitors?.length || 0} competitors`
-    case 'channelConnect': {
-      const c = data.channelConnect?.filter(c => c.connected) || []
-      return c.length > 0 ? `Connected ${c.map(c => c.name).join(' & ')}` : 'Skipped channels'
-    }
-    default: return ''
-  }
+// ── Icon for tool action type ────────────────────────────────────────────────
+
+function ActionIcon({ toolName }) {
+  const isAdd    = toolName.startsWith('add_') || toolName === 'connect_channel' || toolName === 'set_pms'
+  const isRemove = toolName.startsWith('remove_')
+  const isNav    = toolName === 'advance_step' || toolName === 'navigate_to_step'
+
+  if (isNav) return (
+    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+      <path d="M5 12h14M12 5l7 7-7 7" />
+    </svg>
+  )
+  if (isRemove) return (
+    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+      <path d="M5 12h14" />
+    </svg>
+  )
+  if (isAdd) return (
+    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  )
+  return (
+    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+      <path d="M5 13l4 4L19 7" />
+    </svg>
+  )
 }
 
-// ── Status strip ──────────────────────────────────────────────────────────────
+// ── Chat message components ──────────────────────────────────────────────────
 
-function StatusStrip({ status }) {
-  if (!status) return null
-
-  const isThinking = status.type === 'thinking'
-  const isError    = status.type === 'error'
-
+function ChatUserBubble({ text }) {
   return (
     <motion.div
-      key={status.text}
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -4, transition: { duration: 0.2 } }}
-      className="flex items-center gap-2 px-4 py-2 mx-6 mb-2 rounded-xl text-[12px]"
-      style={{
-        background: isError ? '#fff0f0' : isThinking ? '#f2f4f8' : '#f0fdf4',
-        border: `1px solid ${isError ? '#fecaca' : isThinking ? '#e6e9ef' : '#bbf7d0'}`,
-        color: isError ? '#b91c1c' : isThinking ? '#52647a' : '#15803d',
-      }}
+      transition={{ duration: 0.2 }}
+      className="flex justify-end mb-2"
     >
-      {isThinking ? (
-        <>
-          <span className="flex gap-0.5">
-            <span className="typing-dot w-1.5 h-1.5 bg-[#a8b0bd] rounded-full inline-block" />
-            <span className="typing-dot w-1.5 h-1.5 bg-[#a8b0bd] rounded-full inline-block" />
-            <span className="typing-dot w-1.5 h-1.5 bg-[#a8b0bd] rounded-full inline-block" />
-          </span>
-          <span>{status.text}</span>
-        </>
-      ) : (
-        <>
-          <span>{isError ? '⚠' : '✓'}</span>
-          <span>{status.text}</span>
-        </>
-      )}
+      <div className="bg-[#125fe3] text-white rounded-2xl rounded-br-sm px-4 py-2.5 max-w-[85%]">
+        <p className="text-[13px] leading-relaxed">{text}</p>
+      </div>
+    </motion.div>
+  )
+}
+
+function ChatAgentBubble({ text }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25 }}
+      className="flex items-start gap-2.5 mb-2"
+    >
+      <div className="flex-shrink-0 mt-0.5">
+        <KompasOrb size="xs" />
+      </div>
+      <div className="bg-white rounded-2xl rounded-bl-sm px-4 py-2.5 max-w-[85%] shadow-sm border border-[#e6e9ef]">
+        <p className="text-[13px] leading-relaxed text-[#2e3d4b]">{text}</p>
+      </div>
+    </motion.div>
+  )
+}
+
+function ChatActionCard({ label, toolName, success }) {
+  const isNav = toolName === 'advance_step' || toolName === 'navigate_to_step'
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 4, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.2 }}
+      className="flex items-start gap-2 mb-2 ml-[30px]"
+    >
+      <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-[12px] font-medium ${
+        isNav
+          ? 'bg-[#f0f4ff] text-[#125fe3] border border-[#125fe3]/15'
+          : success
+            ? 'bg-[#f0fdf4] text-[#15803d] border border-[#bbf7d0]'
+            : 'bg-[#fff0f0] text-[#b91c1c] border border-[#fecaca]'
+      }`}>
+        <ActionIcon toolName={toolName} />
+        <span>{label}</span>
+      </div>
+    </motion.div>
+  )
+}
+
+function ChatThinking() {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="flex items-center gap-2.5 mb-2"
+    >
+      <div className="flex-shrink-0">
+        <KompasOrb size="xs" />
+      </div>
+      <div className="flex gap-1 px-3 py-2">
+        <span className="typing-dot w-1.5 h-1.5 bg-[#a8b0bd] rounded-full inline-block" />
+        <span className="typing-dot w-1.5 h-1.5 bg-[#a8b0bd] rounded-full inline-block" />
+        <span className="typing-dot w-1.5 h-1.5 bg-[#a8b0bd] rounded-full inline-block" />
+      </div>
+    </motion.div>
+  )
+}
+
+function ChatError({ text }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex items-start gap-2 mb-2 ml-[30px]"
+    >
+      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-[12px] bg-[#fff0f0] text-[#b91c1c] border border-[#fecaca]">
+        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path d="M12 9v4M12 17h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span>{text}</span>
+      </div>
     </motion.div>
   )
 }
@@ -113,9 +154,25 @@ function ChatInputBar({ onSend, isProcessing, currentStepId }) {
   const [value, setValue] = useState('')
   const inputRef = useRef(null)
 
-  const placeholder = currentStepId === 'extras'
-    ? 'Add or edit extras, fees & discounts…'
-    : 'Ask Joel anything or request changes…'
+  useEffect(() => {
+    if (!isProcessing && inputRef.current) inputRef.current.focus()
+  }, [isProcessing])
+
+  const placeholders = {
+    welcome: 'Tell me your name…',
+    role: 'What\'s your role at the hotel?',
+    property: 'Tell me about your property…',
+    channelConnect: 'Which channels do you use?',
+    pms: 'Which PMS do you use?',
+    rooms: 'Describe your room types…',
+    extras: 'Add extras, fees & discounts…',
+    ratePlans: 'Describe your rate plans…',
+    ota: 'Which OTA channels should we connect?',
+    distribution: 'How should we distribute your rates?',
+    competitors: 'Name your competitor hotels…',
+    complete: 'Anything you\'d like to adjust?',
+  }
+  const placeholder = placeholders[currentStepId] || 'Type a message…'
 
   const submit = () => {
     const text = value.trim()
@@ -125,20 +182,32 @@ function ChatInputBar({ onSend, isProcessing, currentStepId }) {
   }
 
   return (
-    <div className="flex-shrink-0 px-6 pb-4 pt-2">
+    <div className="flex-shrink-0 px-6 pb-4 pt-2 bg-white border-t border-[#e6e9ef]">
       <div className="max-w-2xl mx-auto">
-        <div className="flex items-center gap-2 bg-[#f9fafb] border border-[#e6e9ef] rounded-2xl px-4 py-2.5 opacity-50 cursor-not-allowed select-none">
+        <div className={`flex items-center gap-2 bg-[#f9fafb] border rounded-2xl px-4 py-2.5 transition-all ${
+          isProcessing ? 'border-[#125fe3]/30' : 'border-[#e6e9ef] focus-within:border-[#125fe3] focus-within:ring-2 focus-within:ring-[#125fe3]/10'
+        }`}>
           <input
             ref={inputRef}
-            className="flex-1 bg-transparent text-[13px] text-[#a8b0bd] outline-none cursor-not-allowed"
-            placeholder="Chat coming soon…"
-            disabled
-            readOnly
+            className="flex-1 bg-transparent text-[13px] text-[#1f2124] placeholder:text-[#a8b0bd] outline-none"
+            placeholder={isProcessing ? 'Joel is thinking…' : placeholder}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() } }}
+            disabled={isProcessing}
           />
-          <button type="button" disabled className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-[#a8b0bd] cursor-not-allowed">
+          <button
+            type="button"
+            onClick={submit}
+            disabled={isProcessing || !value.trim()}
+            className={`flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${
+              value.trim() && !isProcessing
+                ? 'bg-[#125fe3] text-white hover:bg-[#0e4fbd]'
+                : 'text-[#a8b0bd]'
+            }`}
+          >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <rect x="9" y="2" width="6" height="11" rx="3" />
-              <path d="M5 10a7 7 0 0014 0M12 19v3M8 22h8" />
+              <path d="M5 12h14M12 5l7 7-7 7" />
             </svg>
           </button>
         </div>
@@ -150,28 +219,41 @@ function ChatInputBar({ onSend, isProcessing, currentStepId }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function Chat() {
-  const { steps, currentStep, isTyping, stepReady, setStepReady, data, setData, nextStep, resetId } = useOnboarding()
+  const { steps, currentStep, isTyping, stepReady, setStepReady, data, setData, nextStep, setStep, resetId, highlightKeys } = useOnboarding()
   const scrollRef = useRef(null)
+  const bottomRef = useRef(null)
 
   // Full Anthropic conversation history — [{role, content}]
   const [history, setHistory]               = useState([])
+  // UI-visible chat messages — displayed inline in the conversation
+  const [chatMessages, setChatMessages]     = useState([])
   const [chatProcessing, setChatProcessing] = useState(false)
-  // Status strip: { text, type: 'thinking'|'success'|'error' } | null
-  const [status, setStatus]                 = useState(null)
-  const statusTimerRef                      = useRef(null)
+  const [isThinking, setIsThinking_chat]    = useState(false)
 
-  // Clear history when the user resets the onboarding
+  const msgIdRef = useRef(0)
+  const nextMsgId = () => `msg-${++msgIdRef.current}`
+
+  const addChatMessage = useCallback((msg) => {
+    setChatMessages(prev => [...prev, { ...msg, id: nextMsgId() }])
+  }, [])
+
+  // Clear chat messages when the step changes (form-driven or agent-driven)
   useEffect(() => {
-    if (resetId > 0) { setHistory([]); setStatus(null) }
+    setChatMessages([])
+  }, [currentStep])
+
+  // Clear everything on reset
+  useEffect(() => {
+    if (resetId > 0) { setHistory([]); setChatMessages([]) }
   }, [resetId])
 
   // Ref so async handlers always see the latest data without stale closures
-  const dataRef    = useRef(data)
-  const stepsRef   = useRef(steps)
-  const stepRef    = useRef(currentStep)
-  useEffect(() => { dataRef.current  = data    }, [data])
-  useEffect(() => { stepsRef.current = steps   }, [steps])
-  useEffect(() => { stepRef.current  = currentStep }, [currentStep])
+  const dataRef  = useRef(data)
+  const stepsRef = useRef(steps)
+  const stepRef  = useRef(currentStep)
+  useEffect(() => { dataRef.current  = data         }, [data])
+  useEffect(() => { stepsRef.current = steps        }, [steps])
+  useEffect(() => { stepRef.current  = currentStep  }, [currentStep])
 
   // Simulate typing delay on step change
   useEffect(() => {
@@ -182,22 +264,29 @@ export default function Chat() {
     }
   }, [isTyping, currentStep, setStepReady])
 
-  // Auto-scroll on step change
-  useEffect(() => {
-    if (scrollRef.current) {
-      setTimeout(() => {
-        scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
-      }, 100)
-    }
-  }, [currentStep, stepReady])
-
-  const showStatus = useCallback((text, type, autoDismissMs = 0) => {
-    if (statusTimerRef.current) clearTimeout(statusTimerRef.current)
-    setStatus({ text, type })
-    if (autoDismissMs > 0) {
-      statusTimerRef.current = setTimeout(() => setStatus(null), autoDismissMs)
-    }
+  // Unified auto-scroll — scroll to bottom when new content appears
+  const isNearBottom = useCallback(() => {
+    if (!scrollRef.current) return true
+    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current
+    return scrollHeight - scrollTop - clientHeight < 200
   }, [])
+
+  const scrollToBottom = useCallback(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+  }, [])
+
+  // Scroll on step change (always) and on new messages (if near bottom)
+  useEffect(() => {
+    const t = setTimeout(scrollToBottom, 120)
+    return () => clearTimeout(t)
+  }, [currentStep, stepReady, scrollToBottom])
+
+  useEffect(() => {
+    if (isNearBottom()) {
+      const t = setTimeout(scrollToBottom, 80)
+      return () => clearTimeout(t)
+    }
+  }, [chatMessages, isThinking, isNearBottom, scrollToBottom])
 
   const CurrentStepComponent = STEP_COMPONENTS[currentStep]
   const currentStepDef = steps[currentStep]
@@ -205,14 +294,14 @@ export default function Chat() {
   // ── Send handler ────────────────────────────────────────────────────────────
 
   const handleChatSend = async (text) => {
+    addChatMessage({ type: 'user', text })
     setChatProcessing(true)
-    showStatus('Thinking…', 'thinking')
+    setIsThinking_chat(true)
 
     let workingData = { ...dataRef.current }
     const currentStepSnapshot = stepsRef.current[stepRef.current]
     const allSteps = stepsRef.current
 
-    // Prepend a brief context note if history is empty
     let baseHistory = history
     if (history.length === 0 && Object.values(workingData).some(v => v && (Array.isArray(v) ? v.length > 0 : true))) {
       baseHistory = [{
@@ -231,61 +320,99 @@ export default function Chat() {
       let updatedMessages = [...newMessages, { role: 'assistant', content: response.content }]
 
       let shouldAdvance = false
-      let actionLabel   = ''
+      let navigateTarget = null
 
-      // Loop until Claude stops calling tools (handles multi-turn tool chains)
+      const showAgentText = (content) => {
+        const textBlocks = (content || []).filter(b => b.type === 'text' && b.text.trim())
+        for (const block of textBlocks) {
+          addChatMessage({ type: 'agent-text', text: block.text })
+        }
+      }
+
       let iterations = 0
       while (response.stop_reason === 'tool_use' && iterations < 8) {
         iterations++
         const toolUses    = response.content.filter(b => b.type === 'tool_use')
         const toolResults = []
 
+        showAgentText(response.content)
+
         for (const tu of toolUses) {
           const { data: nextData, result, sideEffect } = executeTool(tu.name, tu.input, workingData)
           workingData = nextData
           if (sideEffect === 'advance_step') shouldAdvance = true
+          if (sideEffect === 'navigate_to_step') navigateTarget = result.targetStep
+
+          const label = labelForTool(tu.name, tu.input)
+          if (tu.name !== 'advance_step' && tu.name !== 'navigate_to_step') {
+            addChatMessage({
+              type: 'agent-action',
+              label,
+              toolName: tu.name,
+              success: result.success !== false,
+            })
+          }
+
           toolResults.push({
             type: 'tool_result',
             tool_use_id: tu.id,
             content: JSON.stringify(result),
           })
-          if (!actionLabel) actionLabel = labelForTool(tu.name, tu.input)
         }
 
-        // Commit all data mutations after each tool round
+        // Commit mutations + highlight changed keys
+        const changedKeys = []
         Object.keys(workingData).forEach(key => {
           if (JSON.stringify(workingData[key]) !== JSON.stringify(dataRef.current[key])) {
             setData(key, workingData[key])
+            changedKeys.push(key)
           }
         })
+        if (changedKeys.length > 0) highlightKeys(changedKeys)
 
         updatedMessages.push({ role: 'user', content: toolResults })
+
+        setIsThinking_chat(true)
         response = await callClaude(updatedMessages, workingData, currentStepSnapshot, allSteps)
         updatedMessages.push({ role: 'assistant', content: response.content })
       }
 
+      setIsThinking_chat(false)
+      showAgentText(response.content)
       setHistory(updatedMessages)
 
-      if (shouldAdvance) {
-        showStatus('Moving to next step…', 'success')
-        setTimeout(() => {
-          setStatus(null)
-          nextStep()
-        }, 1500)
-      } else {
-        const successLabel = actionLabel || 'Done'
-        showStatus(successLabel, 'success', 3000)
+      if (navigateTarget != null) {
+        const targetLabel = steps[navigateTarget]?.label || 'step'
+        addChatMessage({
+          type: 'agent-action',
+          label: `Navigating to ${targetLabel}`,
+          toolName: 'navigate_to_step',
+          success: true,
+        })
+        setTimeout(() => setStep(navigateTarget), 1400)
+      } else if (shouldAdvance) {
+        addChatMessage({
+          type: 'agent-action',
+          label: 'Moving to next step…',
+          toolName: 'advance_step',
+          success: true,
+        })
+        setTimeout(() => nextStep(), 1400)
       }
 
     } catch (err) {
+      setIsThinking_chat(false)
       const errText = err.message?.includes('ANTHROPIC_API_KEY')
         ? 'API key not configured — add ANTHROPIC_API_KEY to .env.local'
         : `Something went wrong: ${err.message}`
-      showStatus(errText, 'error', 6000)
+      addChatMessage({ type: 'error', text: errText })
     } finally {
       setChatProcessing(false)
+      setIsThinking_chat(false)
     }
   }
+
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
@@ -314,22 +441,11 @@ export default function Chat() {
         </button>
       </header>
 
-      {/* Scrollable step area */}
+      {/* Single unified scrollable area */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto bg-lh-bg">
-        <div className="max-w-2xl mx-auto px-6 py-8">
+        <div className="max-w-2xl mx-auto px-6 py-6">
 
-          {/* Completed steps */}
-          {steps.slice(0, currentStep).map(step => {
-            const response = getUserResponse(step.id, data)
-            if (!response) return null
-            return (
-              <div key={step.id} className="mb-4 opacity-60 hover:opacity-80 transition-opacity">
-                <UserMessage>{response}</UserMessage>
-              </div>
-            )
-          })}
-
-          {/* Active step */}
+          {/* Active step — renders KompasMessage + InteractiveArea */}
           <AnimatePresence mode="wait">
             {isTyping && !stepReady ? (
               <TypingIndicator key="typing" />
@@ -337,15 +453,31 @@ export default function Chat() {
               CurrentStepComponent && <CurrentStepComponent key={steps[currentStep]?.id} />
             )}
           </AnimatePresence>
+
+          {/* Latest chat message only — history is visible in the sidebar */}
+          {chatMessages.length > 0 && (() => {
+            const last = chatMessages[chatMessages.length - 1]
+            return (
+              <div className="mt-4">
+                {last.type === 'user' && <ChatUserBubble key={last.id} text={last.text} />}
+                {last.type === 'agent-text' && <ChatAgentBubble key={last.id} text={last.text} />}
+                {last.type === 'agent-action' && <ChatActionCard key={last.id} label={last.label} toolName={last.toolName} success={last.success} />}
+                {last.type === 'error' && <ChatError key={last.id} text={last.text} />}
+              </div>
+            )
+          })()}
+
+          {/* Thinking indicator */}
+          <AnimatePresence>
+            {isThinking && <ChatThinking key="thinking" />}
+          </AnimatePresence>
+
+          {/* Scroll anchor */}
+          <div ref={bottomRef} className="h-1" />
         </div>
       </div>
 
-      {/* Status strip — shown above the input bar */}
-      <AnimatePresence>
-        {status && <StatusStrip key="status" status={status} />}
-      </AnimatePresence>
-
-      {/* Command bar */}
+      {/* Chat input — pinned at bottom */}
       <ChatInputBar
         onSend={handleChatSend}
         isProcessing={chatProcessing}
@@ -363,21 +495,22 @@ function labelForTool(name, input) {
                                 ? `Saved name & role`
                                 : input.name ? `Name saved: "${input.name}"` : `Role saved: "${input.role}"`
     case 'set_property_info': return `Property info saved`
-    case 'add_room':          return `Room type added: "${input.name}"`
-    case 'update_room':       return `Room type updated`
-    case 'remove_room':       return `Room type removed`
-    case 'add_extra':         return `Extra added: "${input.name}"`
-    case 'update_extra':      return `Extra updated`
-    case 'remove_extra':      return `Extra removed`
+    case 'add_room':          return `Room added: "${input.name}"`
+    case 'update_room':       return `Room updated: "${input.name}"`
+    case 'remove_room':       return `Room removed: "${input.name}"`
+    case 'add_extra':         return `Added: "${input.name}"`
+    case 'update_extra':      return `Updated: "${input.name}"`
+    case 'remove_extra':      return `Removed: "${input.name}"`
     case 'add_rate_plan':     return `Rate plan added: "${input.name}"`
-    case 'update_rate_plan':  return `Rate plan updated`
-    case 'remove_rate_plan':  return `Rate plan removed`
+    case 'update_rate_plan':  return `Rate plan updated: "${input.name}"`
+    case 'remove_rate_plan':  return `Rate plan removed: "${input.name}"`
     case 'set_distribution':  return `Distribution updated`
     case 'set_pms':           return `PMS connected: ${input.name}`
     case 'connect_channel':   return `Channel connected: ${input.channelName}`
     case 'add_competitor':    return `Competitor added: "${input.name}"`
-    case 'remove_competitor': return `Competitor removed`
+    case 'remove_competitor': return `Competitor removed: "${input.name}"`
     case 'advance_step':      return `Moving to next step…`
+    case 'navigate_to_step':  return `Navigating to ${input.stepId}`
     default:                  return 'Changes applied'
   }
 }
