@@ -246,14 +246,16 @@ export default function Chat() {
     const newMessages = [...baseHistory, { role: 'user', content: text }]
 
     try {
-      // First call
       let response = await callClaude(newMessages, workingData, currentStepSnapshot, allSteps)
       let updatedMessages = [...newMessages, { role: 'assistant', content: response.content }]
 
       let shouldAdvance = false
       let actionLabel   = ''
 
-      if (response.stop_reason === 'tool_use') {
+      // Loop until Claude stops calling tools (handles multi-turn tool chains)
+      let iterations = 0
+      while (response.stop_reason === 'tool_use' && iterations < 8) {
+        iterations++
         const toolUses    = response.content.filter(b => b.type === 'tool_use')
         const toolResults = []
 
@@ -266,18 +268,16 @@ export default function Chat() {
             tool_use_id: tu.id,
             content: JSON.stringify(result),
           })
-          // Derive a human-readable action label from the tool name
           if (!actionLabel) actionLabel = labelForTool(tu.name, tu.input)
         }
 
-        // Commit all data mutations
+        // Commit all data mutations after each tool round
         Object.keys(workingData).forEach(key => {
           if (JSON.stringify(workingData[key]) !== JSON.stringify(dataRef.current[key])) {
             setData(key, workingData[key])
           }
         })
 
-        // Second call for final reply
         updatedMessages.push({ role: 'user', content: toolResults })
         response = await callClaude(updatedMessages, workingData, currentStepSnapshot, allSteps)
         updatedMessages.push({ role: 'assistant', content: response.content })
