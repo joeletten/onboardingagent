@@ -24,6 +24,23 @@ export const TOOLS = [
 Also call this when the user says "next", "continue", "done", "skip", or similar at any step.`,
     input_schema: { type: 'object', properties: {} },
   },
+  {
+    name: 'navigate_to_step',
+    description: `Jump to a specific onboarding step by ID. Use this when the user asks to go to a specific step, go back, or when they mention wanting to work on a particular section (e.g. "let's do rooms" or "go back to property settings").
+
+Available step IDs: welcome, role, property, channelConnect, pms, rooms, extras, ratePlans, ota, distribution, competitors, complete`,
+    input_schema: {
+      type: 'object',
+      required: ['stepId'],
+      properties: {
+        stepId: {
+          type: 'string',
+          enum: ['welcome', 'role', 'property', 'channelConnect', 'pms', 'rooms', 'extras', 'ratePlans', 'ota', 'distribution', 'competitors', 'complete'],
+          description: 'The step ID to navigate to',
+        },
+      },
+    },
+  },
 
   // ── User identity ────────────────────────────────────────────────────────────
   {
@@ -441,7 +458,9 @@ ${stepGuidance}
 
 **Be concise and warm.** 2–4 sentences max unless they ask for more. Use first person. Skip filler phrases like "Certainly!" or "Great question!".
 
-**Full context awareness.** You can see everything that's been set up. Reference it naturally — "I see you've connected Booking.com already" or "Since you have 3 room types, you might want a cleaning fee per stay".`
+**Full context awareness.** You can see everything that's been set up. Reference it naturally — "I see you've connected Booking.com already" or "Since you have 3 room types, you might want a cleaning fee per stay".
+
+**Cross-step edits.** You can modify data for any step at any time — even if the user isn't currently on that step. Use the appropriate tool to save the data, and if the user explicitly asks to work on a different section, use navigate_to_step to take them there. For minor corrections (e.g. fixing a typo in the hotel name), just save the data without navigating away.`
 }
 
 // ── API call ──────────────────────────────────────────────────────────────────
@@ -488,6 +507,13 @@ export function executeTool(name, input, currentData) {
     // ── Navigation ──────────────────────────────────────────────────────────
     case 'advance_step':
       return { data: d, result: { success: true, message: 'Advancing to next step' }, sideEffect: 'advance_step' }
+
+    case 'navigate_to_step': {
+      const stepIds = ['welcome', 'role', 'property', 'channelConnect', 'pms', 'rooms', 'extras', 'ratePlans', 'ota', 'distribution', 'competitors', 'complete']
+      const targetIndex = stepIds.indexOf(input.stepId)
+      if (targetIndex === -1) return { data: d, result: { success: false, message: `Unknown step: ${input.stepId}` } }
+      return { data: d, result: { success: true, message: `Navigating to ${input.stepId}`, targetStep: targetIndex }, sideEffect: 'navigate_to_step' }
+    }
 
     // ── User identity ────────────────────────────────────────────────────────
     case 'set_user_info': {

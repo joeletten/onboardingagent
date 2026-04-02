@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { KompasMessage, InteractiveArea, Button } from '../ui'
-import { useOnboarding } from '../OnboardingContext'
+import { useOnboarding, useAgentHighlight } from '../OnboardingContext'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -231,7 +231,7 @@ export function AddForm({ onSave, onCancel, initial }) {
 
 // ── Item Card ─────────────────────────────────────────────────────────────────
 
-function ItemCard({ item, onDelete }) {
+function ItemCard({ item, onDelete, isHighlighted }) {
   const isDiscount = item.itemType === 'discount'
   const basis = CHARGE_BASIS_OPTIONS.find(b => b.value === item.chargeBasis)?.label
 
@@ -241,7 +241,7 @@ function ItemCard({ item, onDelete }) {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -4 }}
-      className="bg-white rounded-lg border border-[#e6e9ef] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.04)] overflow-hidden"
+      className={`bg-white rounded-lg border border-[#e6e9ef] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.04)] overflow-hidden transition-all ${isHighlighted ? 'agent-highlight' : ''}`}
     >
       <div className="flex items-center gap-3 p-4">
         <ItemIcon type={item.itemType} />
@@ -287,6 +287,7 @@ export default function Extras() {
   const [showForm, setShowForm] = useState(false)
 
   // Items live in context so the global chat input can also add/remove them
+  const extrasHighlighted = useAgentHighlight('extras')
   const items = data.extras || []
 
   const addItem = (item) => {
@@ -312,7 +313,7 @@ export default function Extras() {
           {/* List */}
           <AnimatePresence mode="popLayout">
             {items.map(item => (
-              <ItemCard key={item.id} item={item} onDelete={() => removeItem(item.id)} />
+              <ItemCard key={item.id} item={item} onDelete={() => removeItem(item.id)} isHighlighted={extrasHighlighted} />
             ))}
           </AnimatePresence>
 
