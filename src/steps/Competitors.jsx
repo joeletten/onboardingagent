@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { KompasMessage, InteractiveArea, PrimaryButton } from '../ui'
 import { useOnboarding } from '../OnboardingContext'
 import { getMockCompetitors } from '../mockData'
@@ -9,7 +9,18 @@ export default function Competitors() {
   const { data, setData, nextStep } = useOnboarding()
   const city = data.property?.city || 'your area'
   const competitors = useMemo(() => getMockCompetitors(city), [city])
-  const [selected, setSelected] = useState(new Set())
+
+  // Initialize selected from context (match by name so chat-added competitors work)
+  const [selected, setSelected] = useState(() => {
+    const savedNames = new Set((data.competitors || []).map(c => c.name?.toLowerCase()))
+    return new Set(competitors.filter(c => savedNames.has(c.name.toLowerCase())).map(c => c.id))
+  })
+
+  // Keep selection in sync when chat updates data.competitors
+  useEffect(() => {
+    const savedNames = new Set((data.competitors || []).map(c => c.name?.toLowerCase()))
+    setSelected(new Set(competitors.filter(c => savedNames.has(c.name.toLowerCase())).map(c => c.id)))
+  }, [data.competitors, competitors])
 
   const toggle = (id) => {
     setSelected(prev => {

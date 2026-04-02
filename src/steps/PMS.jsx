@@ -130,20 +130,19 @@ function ConnectModal({ pms, onComplete, onClose }) {
 }
 
 export default function PMS() {
-  const { setData, nextStep } = useOnboarding()
-  const [pmsItems, setPmsItems] = useState(
-    PMS_OPTIONS.map(p => ({ ...p, connected: false }))
-  )
+  const { data, setData, nextStep } = useOnboarding()
   const [activeModal, setActiveModal] = useState(null)
 
+  // Derive connected state from context so chat updates reflect immediately
+  const pmsItems = PMS_OPTIONS.map(p => ({
+    ...p,
+    connected: data.pms?.connected && (data.pms?.id === p.id || (p.id === 'other' && !PMS_OPTIONS.some(o => o.id === data.pms?.id && o.id !== 'other'))),
+    connectedName: data.pms?.id === p.id ? data.pms?.name : undefined,
+  }))
   const connectedPms = pmsItems.find(p => p.connected)
   const modalPms = PMS_OPTIONS.find(p => p.id === activeModal)
 
   const handleConnect = (pmsId, otherName) => {
-    const updated = pmsItems.map(p =>
-      p.id === pmsId ? { ...p, connected: true, connectedName: otherName || p.name } : p
-    )
-    setPmsItems(updated)
     const finalName = otherName || PMS_OPTIONS.find(p => p.id === pmsId)?.name
     setData('pms', { id: pmsId, name: finalName, connected: true })
     setActiveModal(null)

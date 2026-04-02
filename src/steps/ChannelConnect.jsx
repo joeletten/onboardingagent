@@ -111,24 +111,24 @@ function OAuthModal({ channel, onComplete, onClose }) {
 
 export default function ChannelConnect() {
   const { data, setData, nextStep } = useOnboarding()
-  const [channels, setChannels] = useState(
-    data.channelConnect || CHANNELS.map(c => ({ ...c, connected: false }))
-  )
   const [activeModal, setActiveModal] = useState(null)
 
+  // Derive connected state from context so chat updates reflect immediately
+  const channels = CHANNELS.map(c => ({
+    ...c,
+    connected: (data.channelConnect || []).find(dc => dc.id === c.id)?.connected || false,
+  }))
   const connectedCount = channels.filter(c => c.connected).length
 
   const handleConnect = (channelId) => {
     const updated = channels.map(c =>
       c.id === channelId ? { ...c, connected: true } : c
     )
-    setChannels(updated)
     setData('channelConnect', updated)
     setActiveModal(null)
   }
 
   const handleContinue = () => {
-    setData('channelConnect', channels)
     setTimeout(() => nextStep(), 300)
   }
 

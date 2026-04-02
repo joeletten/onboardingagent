@@ -111,6 +111,15 @@ export default function PropertyAndSettings() {
 
   const localizationFromCountry = !data.settings?.localization
 
+  // When chat sets property info directly, switch from search phase to settings
+  useEffect(() => {
+    const chatSetProperty = data.property?.name || data.settings?.hotelDetails?.name
+    if (chatSetProperty && phase === 'search') {
+      if (data.property && !selected) setSelected(data.property)
+      setPhase('settings')
+    }
+  }, [data.property?.name, data.settings?.hotelDetails?.name])
+
   // Keep forms in sync when chat updates context
   useEffect(() => {
     setHotelDetails({

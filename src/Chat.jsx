@@ -290,7 +290,7 @@ export default function Chat() {
         setTimeout(() => {
           setStatus(null)
           nextStep()
-        }, 700)
+        }, 1500)
       } else {
         const successLabel = actionLabel || 'Done'
         showStatus(successLabel, 'success', 3000)
