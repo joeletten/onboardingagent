@@ -452,7 +452,7 @@ export async function callClaude(messages, data, currentStep, allSteps) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
-      max_tokens: 1024,
+      max_tokens: 2048,
       system: buildSystemPrompt(data, currentStep, allSteps),
       tools: TOOLS,
       messages,
@@ -460,7 +460,12 @@ export async function callClaude(messages, data, currentStep, allSteps) {
   })
 
   const json = await res.json()
-  if (!res.ok) throw new Error(json.error || `API error ${res.status}`)
+  if (!res.ok) {
+    const msg = typeof json.error === 'object'
+      ? (json.error?.message || JSON.stringify(json.error))
+      : (json.error || `API error ${res.status}`)
+    throw new Error(msg)
+  }
   return json
 }
 
