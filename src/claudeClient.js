@@ -5,11 +5,23 @@ export const TOOLS = [
   {
     name: 'advance_step',
     description: `Move the user to the next onboarding step.
-Use this when:
-- The user explicitly says they are done, ready to continue, or wants to move on
-- You have just collected and saved all required information for the current step
-- The user says "skip", "next", "continue", or similar
-Do NOT use this automatically after adding a single item — only advance when the step feels genuinely complete.`,
+
+**Auto-advance rules (call this in the same response, right after saving data):**
+- "welcome" step → call immediately after saving the user's name
+- "role" step → call immediately after saving the user's role
+- "pms" step → call immediately after set_pms or if user says they have no PMS
+- "channelConnect" step → call immediately after connecting channels or if user skips
+- "property" step → call after set_property_info once you have at least hotel name + country
+
+**Manual-advance only (wait for explicit "done", "next", "continue", or "skip"):**
+- "rooms" — user may want to add multiple room types
+- "extras" — user may want to add multiple extras/fees
+- "ratePlans" — user may want to add multiple rate plans
+- "ota" — user may want to add multiple channels
+- "distribution" — user may want to configure multiple assignments
+- "competitors" — user may want to add multiple competitors
+
+Also call this when the user says "next", "continue", "done", "skip", or similar at any step.`,
     input_schema: { type: 'object', properties: {} },
   },
 
@@ -387,11 +399,11 @@ export function buildSystemPrompt(data, currentStep, allSteps) {
 
   // Step-specific guidance
   const stepGuidance = {
-    welcome:        'Ask for the user\'s name if not already provided. Use set_user_info to save it immediately when they provide it.',
-    role:           'Ask what their role is at the hotel (e.g. General Manager, Revenue Manager, Owner). Use set_user_info to save it immediately.',
-    property:       'Make sure we have hotel name, total rooms, star rating, city/market, currency, and timezone. Use set_property_info as soon as they give you any of these details.',
-    channelConnect: 'Help the user connect Booking.com and/or Expedia. Use connect_channel if they tell you which they use.',
-    pms:            'Ask which PMS they use. Use set_pms when they tell you. If they don\'t have one, that\'s fine.',
+    welcome:        'Ask for the user\'s name if not already provided. Use set_user_info to save it immediately when they provide it, then call advance_step right away.',
+    role:           'Ask what their role is at the hotel (e.g. General Manager, Revenue Manager, Owner). Use set_user_info to save it immediately, then call advance_step right away.',
+    property:       'Make sure we have hotel name and country at minimum. Use set_property_info as soon as they give you any details. Once you have at least a name and country saved, call advance_step — you can always collect remaining details (rooms, stars, etc.) later.',
+    channelConnect: 'Help the user connect Booking.com and/or Expedia. Use connect_channel if they tell you which they use. Once they\'ve connected at least one channel or said they want to skip, call advance_step.',
+    pms:            'Ask which PMS they use. Use set_pms when they tell you and then call advance_step. If they don\'t have one, acknowledge it and call advance_step right away.',
     rooms:          'Help set up all room types. We need at least 1. The first one is the base room (needs a reference rate). Others are priced relative to it. If they mention room names, counts, or rates, use add_room immediately.',
     extras:         'Help add all extras, fees, and discounts. Common ones: Breakfast (per person/night), Cleaning fee (per stay), Early check-in, Late check-out, Parking, Pet fee. Use add_extra immediately when they describe one.',
     ratePlans:      'Help the user create rate plans. A root plan has its own floor price. Derived plans offset from a root. Use add_rate_plan for each they describe. Common plans: Flexible Rate, Non-Refundable (10-15% cheaper), Early Bird, Last Minute.',
@@ -419,11 +431,13 @@ ${stepGuidance}
 
 **Be proactive and conversational.** Don't wait for the user to volunteer everything — ask specific questions about what's missing for the current step. When they answer, immediately use the appropriate tool to save it, then either ask the next question or (if the step is complete) invite them to continue.
 
-**Act first, confirm briefly.** When the user provides information, use the tool right away. No need to ask "are you sure?" — just do it and confirm in your reply.
+**Ask before acting if details are missing.** If a tool needs specific information you don't yet have (e.g., you need a room name AND count to add a room, a price to add an extra, or an email to set contact info), ask for exactly what's missing in one clear question before calling the tool. Once you have all required fields, execute immediately.
+
+**Act first, confirm briefly.** When the user provides enough information, use the tool right away. No need to ask "are you sure?" — just do it and confirm in one sentence.
 
 **Drive completeness.** After filling in the current step, if something else is clearly missing (e.g. no competitors, no breakfast extra), mention it gently in one sentence. Don't overwhelm — one gap at a time.
 
-**Advance the flow.** When the current step is complete or the user says "next", "continue", "done", "skip", or similar — call advance_step. This moves the UI to the next step.
+**Advance the flow automatically.** For simple single-action steps (welcome, role, pms, channelConnect, property), call advance_step in the same response right after saving the data — don't wait for the user to say "next". For multi-item steps (rooms, extras, ratePlans, ota, distribution, competitors), wait until the user signals they're done. See the advance_step tool description for exact rules.
 
 **Be concise and warm.** 2–4 sentences max unless they ask for more. Use first person. Skip filler phrases like "Certainly!" or "Great question!".
 
@@ -438,7 +452,7 @@ export async function callClaude(messages, data, currentStep, allSteps) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
-      max_tokens: 1024,
+      max_tokens: 2048,
       system: buildSystemPrompt(data, currentStep, allSteps),
       tools: TOOLS,
       messages,
@@ -446,7 +460,12 @@ export async function callClaude(messages, data, currentStep, allSteps) {
   })
 
   const json = await res.json()
-  if (!res.ok) throw new Error(json.error || `API error ${res.status}`)
+  if (!res.ok) {
+    const msg = typeof json.error === 'object'
+      ? (json.error?.message || JSON.stringify(json.error))
+      : (json.error || `API error ${res.status}`)
+    throw new Error(msg)
+  }
   return json
 }
 

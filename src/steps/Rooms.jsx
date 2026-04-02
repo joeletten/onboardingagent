@@ -409,27 +409,24 @@ export default function Rooms() {
   const hasOta = connectedChannels.length > 0
   const otaLabel = connectedChannels[0]?.name || 'Booking.com'
 
-  // Init rooms from PMS prefill or empty
-  const [rooms, setRooms] = useState(() => {
-    const saved = data.rooms || []
-    return saved.map(r => ({
-      bookableOnline: true,
-      defaultGuests: 2,
-      minGuests: 1,
-      maxGuests: 2,
-      maxKids: 1,
-      maxBabies: 1,
-      offsetDirection: '+',
-      offsetType: 'percentage',
-      offsetValue: 0,
-      ...r,
-    }))
-  })
+  // Rooms live in context so chat and form stay in sync
+  const rooms = (data.rooms || []).map(r => ({
+    bookableOnline: true,
+    defaultGuests: 2,
+    minGuests: 1,
+    maxGuests: 2,
+    maxKids: 1,
+    maxBabies: 1,
+    offsetDirection: '+',
+    offsetType: 'percentage',
+    offsetValue: 0,
+    ...r,
+  }))
 
   const [editingId, setEditingId] = useState(null)
   const [editForm, setEditForm] = useState(null)
 
-  const [showNewForm, setShowNewForm] = useState(rooms.length === 0)
+  const [showNewForm, setShowNewForm] = useState(!data.rooms?.length)
   const [newForm, setNewForm] = useState(() => emptyRoom(true))
 
   const baseRoom = rooms.find(r => r.isBase) || rooms[0]
@@ -449,7 +446,7 @@ export default function Rooms() {
   }
 
   const saveEdit = () => {
-    setRooms(prev => prev.map(r => r.id === editingId ? { ...editForm } : r))
+    setData('rooms', rooms.map(r => r.id === editingId ? { ...editForm } : r))
     setEditingId(null)
     setEditForm(null)
   }
@@ -460,13 +457,11 @@ export default function Rooms() {
   }
 
   const deleteRoom = (id) => {
-    setRooms(prev => {
-      const filtered = prev.filter(r => r.id !== id)
-      if (prev.find(r => r.id === id)?.isBase && filtered.length > 0) {
-        filtered[0] = { ...filtered[0], isBase: true, offsetType: 'percentage', offsetValue: 0 }
-      }
-      return filtered
-    })
+    const filtered = rooms.filter(r => r.id !== id)
+    if (rooms.find(r => r.id === id)?.isBase && filtered.length > 0) {
+      filtered[0] = { ...filtered[0], isBase: true, offsetType: 'percentage', offsetValue: 0 }
+    }
+    setData('rooms', filtered)
     if (editingId === id) { setEditingId(null); setEditForm(null) }
   }
 
@@ -474,13 +469,12 @@ export default function Rooms() {
     if (!newForm.name.trim() || !parseInt(newForm.count)) return
     const isFirst = rooms.length === 0
     const room = { ...newForm, id: Date.now(), isBase: isFirst }
-    setRooms(prev => [...prev, room])
+    setData('rooms', [...rooms, room])
     setShowNewForm(false)
     setNewForm(emptyRoom(false))
   }
 
   const handleContinue = () => {
-    setData('rooms', rooms)
     nextStep()
   }
 

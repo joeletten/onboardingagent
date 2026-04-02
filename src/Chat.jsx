@@ -127,39 +127,20 @@ function ChatInputBar({ onSend, isProcessing, currentStepId }) {
   return (
     <div className="flex-shrink-0 px-6 pb-4 pt-2">
       <div className="max-w-2xl mx-auto">
-        <div className="flex items-center gap-2 bg-white border border-[#e6e9ef] rounded-2xl px-4 py-2.5 shadow-[0_4px_24px_rgba(0,0,0,0.08)] focus-within:border-[#125fe3] focus-within:ring-2 focus-within:ring-[#125fe3]/15 transition-all">
+        <div className="flex items-center gap-2 bg-[#f9fafb] border border-[#e6e9ef] rounded-2xl px-4 py-2.5 opacity-50 cursor-not-allowed select-none">
           <input
             ref={inputRef}
-            className="flex-1 bg-transparent text-[13px] text-[#1f2124] placeholder:text-[#a8b0bd] outline-none"
-            placeholder={placeholder}
-            value={value}
-            onChange={e => setValue(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && submit()}
-            disabled={isProcessing}
+            className="flex-1 bg-transparent text-[13px] text-[#a8b0bd] outline-none cursor-not-allowed"
+            placeholder="Chat coming soon…"
+            disabled
+            readOnly
           />
-          {/* Voice (dummy) */}
-          <button
-            type="button"
-            className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-[#a8b0bd] hover:text-[#52647a] hover:bg-[#f2f4f8] transition-colors"
-            title="Voice input (coming soon)"
-          >
+          <button type="button" disabled className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-[#a8b0bd] cursor-not-allowed">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <rect x="9" y="2" width="6" height="11" rx="3" />
               <path d="M5 10a7 7 0 0014 0M12 19v3M8 22h8" />
             </svg>
           </button>
-          {/* Send */}
-          {value.trim() && (
-            <button
-              onClick={submit}
-              disabled={isProcessing}
-              className="flex-shrink-0 w-7 h-7 rounded-lg bg-[#125fe3] flex items-center justify-center text-white hover:bg-[#0f4fc2] transition-colors disabled:opacity-50"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z" />
-              </svg>
-            </button>
-          )}
         </div>
       </div>
     </div>
@@ -246,14 +227,16 @@ export default function Chat() {
     const newMessages = [...baseHistory, { role: 'user', content: text }]
 
     try {
-      // First call
       let response = await callClaude(newMessages, workingData, currentStepSnapshot, allSteps)
       let updatedMessages = [...newMessages, { role: 'assistant', content: response.content }]
 
       let shouldAdvance = false
       let actionLabel   = ''
 
-      if (response.stop_reason === 'tool_use') {
+      // Loop until Claude stops calling tools (handles multi-turn tool chains)
+      let iterations = 0
+      while (response.stop_reason === 'tool_use' && iterations < 8) {
+        iterations++
         const toolUses    = response.content.filter(b => b.type === 'tool_use')
         const toolResults = []
 
@@ -266,18 +249,16 @@ export default function Chat() {
             tool_use_id: tu.id,
             content: JSON.stringify(result),
           })
-          // Derive a human-readable action label from the tool name
           if (!actionLabel) actionLabel = labelForTool(tu.name, tu.input)
         }
 
-        // Commit all data mutations
+        // Commit all data mutations after each tool round
         Object.keys(workingData).forEach(key => {
           if (JSON.stringify(workingData[key]) !== JSON.stringify(dataRef.current[key])) {
             setData(key, workingData[key])
           }
         })
 
-        // Second call for final reply
         updatedMessages.push({ role: 'user', content: toolResults })
         response = await callClaude(updatedMessages, workingData, currentStepSnapshot, allSteps)
         updatedMessages.push({ role: 'assistant', content: response.content })
@@ -290,7 +271,7 @@ export default function Chat() {
         setTimeout(() => {
           setStatus(null)
           nextStep()
-        }, 700)
+        }, 1500)
       } else {
         const successLabel = actionLabel || 'Done'
         showStatus(successLabel, 'success', 3000)

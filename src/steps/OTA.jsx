@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { KompasMessage, InteractiveArea, ConnectButton, Button, Card } from '../ui'
 import { useOnboarding } from '../OnboardingContext'
 import { OTA_OPTIONS } from '../mockData'
@@ -8,31 +8,42 @@ import IconBrand from '../IconBrand'
 
 export default function OTA() {
   const { data, setData, nextStep } = useOnboarding()
-  const [otas, setOtas] = useState(() => {
-    // Channels already connected in the channelConnect step (Booking.com, Expedia)
-    const channelConnectedIds = new Set(
-      (data.channelConnect || []).filter(c => c.connected).map(c => c.id)
-    )
-    return OTA_OPTIONS.map(o => ({
-      ...o,
-      connected: channelConnectedIds.has(o.id) || (data.otas?.find(s => s.id === o.id)?.connected ?? false),
-      connecting: false,
-    }))
-  })
+  const [connectingIds, setConnectingIds] = useState(new Set())
+  const dataRef = useRef(data)
+  useEffect(() => { dataRef.current = data }, [data])
+
+  // Derive connected state from context so chat updates reflect immediately
+  const channelConnectedIds = new Set(
+    (data.channelConnect || []).filter(c => c.connected).map(c => c.id)
+  )
+  const otas = OTA_OPTIONS.map(o => ({
+    ...o,
+    connected: channelConnectedIds.has(o.id) || (data.otas?.find(s => s.id === o.id)?.connected ?? false),
+    connecting: connectingIds.has(o.id),
+  }))
 
   const handleConnect = (id) => {
-    setOtas(prev => prev.map(o =>
-      o.id === id ? { ...o, connecting: true } : o
-    ))
+    setConnectingIds(prev => new Set([...prev, id]))
     setTimeout(() => {
-      setOtas(prev => prev.map(o =>
-        o.id === id ? { ...o, connecting: false, connected: true } : o
-      ))
+      const d = dataRef.current
+      const existingOtas = d.otas || []
+      const existing = existingOtas.find(o => o.id === id)
+      if (existing) {
+        setData('otas', existingOtas.map(o => o.id === id ? { ...o, connected: true } : o))
+      } else {
+        const option = OTA_OPTIONS.find(o => o.id === id)
+        setData('otas', [...existingOtas, { id, name: option?.name || id, connected: true }])
+      }
+      setConnectingIds(prev => { const n = new Set(prev); n.delete(id); return n })
     }, 2000)
   }
 
   const handleContinue = () => {
-    setData('otas', otas.map(o => ({ id: o.id, name: o.name, connected: o.connected })))
+    const channelIds = new Set((dataRef.current.channelConnect || []).filter(c => c.connected).map(c => c.id))
+    setData('otas', OTA_OPTIONS.map(o => ({
+      id: o.id, name: o.name,
+      connected: channelIds.has(o.id) || (dataRef.current.otas || []).find(s => s.id === o.id)?.connected || false,
+    })))
     nextStep()
   }
 
