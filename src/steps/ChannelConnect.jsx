@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { KompasMessage, InteractiveArea, Button, Card } from '../ui'
-import { useOnboarding } from '../OnboardingContext'
+import { useOnboarding, ContinuePortal } from '../OnboardingContext'
 import IconBrand from '../IconBrand'
 
 const CHANNELS = [
@@ -179,19 +179,21 @@ export default function ChannelConnect() {
             </Card>
           ))}
 
-          {/* CTA */}
-          <div className="flex items-center gap-3 pt-1">
-            <Button onClick={handleContinue}>
-              {connectedCount > 0 ? 'Continue' : 'Skip for now'}
-            </Button>
-            {connectedCount === 0 && (
-              <p className="text-[12px] text-[#a8b0bd]">
-                You can connect channels later in Settings.
-              </p>
-            )}
-          </div>
         </div>
       </InteractiveArea>
+
+      <ContinuePortal>
+        <div className="flex items-center gap-3">
+          <Button onClick={handleContinue}>
+            {connectedCount > 0 ? 'Continue' : 'Skip for now'}
+          </Button>
+          {connectedCount === 0 && (
+            <p className="text-[12px] text-[#a8b0bd]">
+              You can connect channels later in Settings.
+            </p>
+          )}
+        </div>
+      </ContinuePortal>
 
       {/* OAuth modal */}
       {activeModal && modalChannel && (

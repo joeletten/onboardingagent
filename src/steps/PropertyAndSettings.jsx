@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { KompasMessage, InteractiveArea, PropertyCard, Button, Input, Select, Card } from '../ui'
-import { useOnboarding } from '../OnboardingContext'
+import { useOnboarding, ContinuePortal } from '../OnboardingContext'
 
 const COUNTRY_DEFAULTS = {
   Netherlands:      { timezone: 'Europe/Amsterdam', currency: 'EUR', vatRate: '9' },
@@ -383,40 +383,41 @@ export default function PropertyAndSettings() {
                 </Card.Content>
               </Card>
 
-              {/* Navigation */}
-              <div className="flex items-center justify-between mt-3">
-                <div className="flex gap-1.5">
-                  {TABS.map(tab => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`h-1.5 rounded-full transition-all duration-200 ${
-                        activeTab === tab.id ? 'bg-[#125fe3] w-4' : 'bg-[#e6e9ef] w-1.5'
-                      }`}
-                    />
-                  ))}
-                </div>
-                {activeTab !== 'localization' ? (
+              {/* Pagination dots */}
+              <div className="flex gap-1.5 mt-3">
+                {TABS.map(tab => (
                   <button
-                    onClick={() => setActiveTab(TABS[TABS.findIndex(t => t.id === activeTab) + 1].id)}
-                    className="text-[13px] font-semibold text-[#125fe3] hover:text-[#0e4fc4] transition-colors flex items-center gap-1"
-                  >
-                    Next
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path d="M9 18l6-6-6-6" />
-                    </svg>
-                  </button>
-                ) : (
-                  <Button
-                    onClick={handleSave}
-                    disabled={!hotelDetails.name || !contact.email || !localization.timezone}
-                  >
-                    Save & Continue
-                  </Button>
-                )}
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`h-1.5 rounded-full transition-all duration-200 ${
+                      activeTab === tab.id ? 'bg-[#125fe3] w-4' : 'bg-[#e6e9ef] w-1.5'
+                    }`}
+                  />
+                ))}
               </div>
             </div>
           </InteractiveArea>
+
+          <ContinuePortal>
+            {activeTab !== 'localization' ? (
+              <button
+                onClick={() => setActiveTab(TABS[TABS.findIndex(t => t.id === activeTab) + 1].id)}
+                className="text-[13px] font-semibold text-[#125fe3] hover:text-[#0e4fc4] transition-colors flex items-center gap-1"
+              >
+                Next
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path d="M9 18l6-6-6-6" />
+                </svg>
+              </button>
+            ) : (
+              <Button
+                onClick={handleSave}
+                disabled={!hotelDetails.name || !contact.email || !localization.timezone}
+              >
+                Save & Continue
+              </Button>
+            )}
+          </ContinuePortal>
         </>
       )}
     </>

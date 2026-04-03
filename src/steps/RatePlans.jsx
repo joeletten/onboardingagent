@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { KompasMessage, InteractiveArea, Button } from '../ui'
-import { useOnboarding } from '../OnboardingContext'
+import { useOnboarding, ContinuePortal } from '../OnboardingContext'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -774,9 +774,14 @@ export default function RatePlans() {
             </button>
           )}
 
-          {/* Continue */}
-          {!showWizard && plans.length > 0 && (
-            <div className="pt-2">
+        </div>
+      </InteractiveArea>
+
+      {/* Continue — portaled after chat messages, requires at least one root plan */}
+      {!showWizard && (
+        <ContinuePortal>
+          {plans.filter(p => p.type === 'root').length > 0 ? (
+            <div>
               <Button onClick={() => { setData('ratePlans', plans); nextStep() }}>
                 Save rate plans & continue
               </Button>
@@ -787,22 +792,13 @@ export default function RatePlans() {
                 {plans.filter(p => p.type === 'derived').length} derived
               </p>
             </div>
+          ) : (
+            <p className="text-[12px] text-[#a8b0bd]">
+              Add at least one root rate plan to continue
+            </p>
           )}
-
-          {/* Skip */}
-          {!showWizard && plans.length === 0 && (
-            <>
-              <div className="pt-1 border-t border-[#e6e9ef]" />
-              <button
-                onClick={() => { setData('ratePlans', []); nextStep() }}
-                className="text-[12px] text-[#a8b0bd] hover:text-[#52647a] transition-colors"
-              >
-                Skip for now — set up rate plans later →
-              </button>
-            </>
-          )}
-        </div>
-      </InteractiveArea>
+        </ContinuePortal>
+      )}
     </>
   )
 }

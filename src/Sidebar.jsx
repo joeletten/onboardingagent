@@ -131,7 +131,6 @@ export default function Sidebar() {
                 }`}>
                   {step.label}
                 </p>
-                {isComplete && <StepSummary stepId={step.id} data={data} />}
               </div>
             </div>
           )

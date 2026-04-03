@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react'
 import { KompasMessage, InteractiveArea, PrimaryButton } from '../ui'
-import { useOnboarding } from '../OnboardingContext'
+import { useOnboarding, ContinuePortal } from '../OnboardingContext'
 import { getMockCompetitors } from '../mockData'
 
 export default function Competitors() {
@@ -85,16 +85,19 @@ export default function Competitors() {
             )
           })}
 
-          <div className="pt-3 flex items-center gap-3">
-            <PrimaryButton onClick={handleContinue} disabled={selected.size === 0}>
-              Track {selected.size} competitor{selected.size !== 1 ? 's' : ''}
-            </PrimaryButton>
-            {selected.size === 0 && (
-              <p className="text-xs text-lh-text-muted">Select at least one</p>
-            )}
-          </div>
         </div>
       </InteractiveArea>
+
+      <ContinuePortal>
+        <div className="flex items-center gap-3">
+          <PrimaryButton onClick={handleContinue} disabled={selected.size === 0}>
+            Track {selected.size} competitor{selected.size !== 1 ? 's' : ''}
+          </PrimaryButton>
+          {selected.size === 0 && (
+            <p className="text-xs text-lh-text-muted">Select at least one</p>
+          )}
+        </div>
+      </ContinuePortal>
     </>
   )
 }

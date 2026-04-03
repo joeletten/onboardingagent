@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react'
 import { KompasMessage, InteractiveArea, SelectCard, Button } from '../ui'
-import { useOnboarding } from '../OnboardingContext'
+import { useOnboarding, ContinuePortal } from '../OnboardingContext'
 import { ROLE_OPTIONS } from '../mockData'
 
 export default function Role() {
@@ -64,13 +64,18 @@ export default function Role() {
                 onChange={e => setOtherValue(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleOtherSubmit()}
               />
-              <Button onClick={handleOtherSubmit} disabled={!otherValue.trim()}>
-                Continue
-              </Button>
             </div>
           )}
         </div>
       </InteractiveArea>
+
+      {showOther && (
+        <ContinuePortal>
+          <Button onClick={handleOtherSubmit} disabled={!otherValue.trim()}>
+            Continue
+          </Button>
+        </ContinuePortal>
+      )}
     </>
   )
 }
