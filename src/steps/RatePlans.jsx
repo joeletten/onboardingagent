@@ -21,6 +21,7 @@ function emptyPlan() {
     name: '',
     type: 'root',
     parentId: null,
+    refundable: true,
     floorPrice: '',
     offsetDirection: '+',
     offsetType: 'percentage',
@@ -67,6 +68,30 @@ function StepBasics({ form, onChange, existingRoots }) {
           onChange={e => onChange('name', e.target.value)}
           autoFocus
         />
+      </div>
+
+      <div>
+        <label className={labelCls}>Cancellation policy</label>
+        <div className="flex gap-2">
+          {[
+            [true, 'Refundable', 'Guests can cancel for free'],
+            [false, 'Non-refundable', 'No cancellations allowed'],
+          ].map(([val, title, desc]) => (
+            <button
+              key={String(val)}
+              type="button"
+              onClick={() => onChange('refundable', val)}
+              className={`flex-1 p-3 rounded-lg border text-left transition-all ${
+                form.refundable === val
+                  ? 'border-[#125fe3] bg-[rgba(18,95,227,0.05)]'
+                  : 'border-[#e6e9ef] bg-white hover:border-[#125fe3]/30'
+              }`}
+            >
+              <p className={`text-[13px] font-semibold ${form.refundable === val ? 'text-[#125fe3]' : 'text-[#1f2124]'}`}>{title}</p>
+              <p className="text-[11px] text-[#a8b0bd] mt-0.5 leading-snug">{desc}</p>
+            </button>
+          ))}
+        </div>
       </div>
 
       {hasRoots ? (
@@ -274,6 +299,14 @@ function StepDistribution({ form, onChange }) {
   )
 }
 
+function roomEffectivePrice(room) {
+  if (room.isBase) return 100
+  const value = parseFloat(room.offsetValue) || 0
+  const dir = room.offsetDirection === '-' ? -1 : 1
+  if (room.offsetType === 'percentage') return Math.round(100 * (1 + dir * value / 100))
+  return Math.round(100 + dir * value)
+}
+
 function StepRooms({ form, onChange, rooms }) {
   const toggleRoom = (id) => {
     const ids = form.roomIds.includes(id)
@@ -281,6 +314,8 @@ function StepRooms({ form, onChange, rooms }) {
       : [...form.roomIds, id]
     onChange('roomIds', ids)
   }
+
+  const sortedRooms = [...rooms].sort((a, b) => roomEffectivePrice(a) - roomEffectivePrice(b))
 
   return (
     <div className="space-y-3">
@@ -293,7 +328,7 @@ function StepRooms({ form, onChange, rooms }) {
           <p className="text-[13px] text-[#a8b0bd] italic">No rooms set up yet — you can assign rooms later.</p>
         ) : (
           <div className="space-y-2">
-            {rooms.map(room => {
+            {sortedRooms.map(room => {
               const selected = form.roomIds.includes(room.id)
               return (
                 <button
@@ -550,6 +585,11 @@ function PlanCard({ plan, isRoot, parentPlan, rooms, extras, currSymbol, onDelet
                 {offsetLabel}
               </span>
             )}
+            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+              plan.refundable === false ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-700'
+            }`}>
+              {plan.refundable === false ? 'Non-refundable' : 'Refundable'}
+            </span>
             <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
               effectiveChannels === 'direct' ? 'bg-purple-50 text-purple-700' : 'bg-gray-100 text-gray-500'
             }`}>

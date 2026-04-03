@@ -237,11 +237,11 @@ export function Select({
 // ─────────────────────────────────────────────────────────────────────────────
 export function Toggle({ checked, onChange, label, size = 'md', disabled = false }) {
   const isSmall = size === 'sm'
-  const trackW   = isSmall ? 'w-9'  : 'w-11'
-  const trackH   = isSmall ? 'h-5'  : 'h-6'
-  const knobSize = isSmall ? 'w-4 h-4' : 'w-5 h-5'
+  const trackW   = isSmall ? 'w-8'  : 'w-10'
+  const trackH   = isSmall ? 'h-[18px]'  : 'h-[22px]'
+  const knobSize = isSmall ? 'w-3.5 h-3.5' : 'w-[18px] h-[18px]'
   const translate = checked
-    ? (isSmall ? 'translate-x-4' : 'translate-x-5')
+    ? (isSmall ? 'translate-x-[14px]' : 'translate-x-[18px]')
     : 'translate-x-0.5'
 
   return (
@@ -255,13 +255,13 @@ export function Toggle({ checked, onChange, label, size = 'md', disabled = false
         className={`
           relative ${trackW} ${trackH} rounded-full flex-shrink-0
           transition-colors duration-200
-          focus:outline-none focus-visible:ring-2 focus-visible:ring-[#125fe3]/30 focus-visible:ring-offset-1
-          ${checked ? 'bg-[#125fe3]' : 'bg-[#a8b0bd]'}
+          focus:outline-none focus-visible:ring-2 focus-visible:ring-[#125fe3]/20
+          ${checked ? 'bg-[#125fe3]' : 'bg-[#d0d7e2]'}
           ${!disabled ? 'cursor-pointer' : 'cursor-not-allowed'}
         `}
       >
         <span className={`
-          absolute top-0.5 ${knobSize} bg-white rounded-full shadow-sm
+          absolute top-[2px] left-0 ${knobSize} bg-white rounded-full shadow-sm
           transition-transform duration-200
           ${translate}
         `} />

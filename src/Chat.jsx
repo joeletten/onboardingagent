@@ -70,6 +70,21 @@ function ChatUserBubble({ text }) {
   )
 }
 
+function formatInlineMarkdown(text) {
+  const parts = []
+  const regex = /\*\*(.+?)\*\*|\*(.+?)\*/g
+  let lastIndex = 0
+  let match
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) parts.push(match.input.slice(lastIndex, match.index))
+    if (match[1]) parts.push(<strong key={match.index}>{match[1]}</strong>)
+    else if (match[2]) parts.push(<em key={match.index}>{match[2]}</em>)
+    lastIndex = regex.lastIndex
+  }
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex))
+  return parts
+}
+
 function ChatAgentBubble({ text }) {
   return (
     <motion.div
@@ -82,7 +97,7 @@ function ChatAgentBubble({ text }) {
         <KompasOrb size="xs" />
       </div>
       <div className="bg-white rounded-2xl rounded-bl-sm px-4 py-2.5 max-w-[85%] shadow-sm border border-[#e6e9ef]">
-        <p className="text-[13px] leading-relaxed text-[#2e3d4b]">{text}</p>
+        <p className="text-[13px] leading-relaxed text-[#2e3d4b]">{formatInlineMarkdown(text)}</p>
       </div>
     </motion.div>
   )
@@ -221,7 +236,7 @@ function ChatInputBar({ onSend, isProcessing, currentStepId }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function Chat() {
-  const { steps, currentStep, isTyping, stepReady, setStepReady, data, setData, nextStep, setStep, resetId, highlightKeys, continuePortalRef } = useOnboarding()
+  const { steps, currentStep, maxStep, isTyping, stepReady, setStepReady, data, setData, nextStep, setStep, resetId, highlightKeys, continuePortalRef } = useOnboarding()
   const scrollRef = useRef(null)
   const bottomRef = useRef(null)
 
@@ -421,6 +436,30 @@ export default function Chat() {
       {/* Top bar */}
       <header className="flex-shrink-0 h-[60px] border-b border-lh-border-light bg-white flex items-center justify-between px-6">
         <div className="flex items-center gap-3">
+          {/* Back / Forward navigation */}
+          <div className="flex items-center gap-0.5">
+            <button
+              onClick={() => currentStep > 0 && setStep(currentStep - 1)}
+              disabled={currentStep === 0}
+              className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors disabled:opacity-25 disabled:cursor-not-allowed text-[#52647a] hover:bg-[#f2f4f8] hover:text-[#1f2124]"
+              aria-label="Previous step"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <button
+              onClick={() => currentStep < maxStep && setStep(currentStep + 1)}
+              disabled={currentStep >= maxStep}
+              className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors disabled:opacity-25 disabled:cursor-not-allowed text-[#52647a] hover:bg-[#f2f4f8] hover:text-[#1f2124]"
+              aria-label="Next step"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+          <div className="w-px h-5 bg-[#e6e9ef]" />
           <KompasOrb size="sm" />
           <div>
             <p className="text-[13px] font-semibold text-lh-text-primary leading-tight">Joel</p>
