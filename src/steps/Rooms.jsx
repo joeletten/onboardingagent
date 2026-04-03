@@ -23,6 +23,14 @@ function computeExamplePrice(baseExamplePrice, room) {
   return Math.round(baseExamplePrice + dir * value)
 }
 
+function roomPrice(room) {
+  return computeExamplePrice(100, room)
+}
+
+function sortRoomsByPrice(rooms) {
+  return [...rooms].sort((a, b) => roomPrice(a) - roomPrice(b))
+}
+
 function formatOffset(room) {
   if (room.isBase) return null
   const dir = room.offsetDirection === '-' ? '−' : '+'
@@ -37,7 +45,6 @@ function emptyRoom(isBase = false) {
     name: '',
     count: '',
     isBase,
-    baseRate: '',
     offsetDirection: '+',
     offsetType: 'percentage',
     offsetValue: '',
@@ -72,9 +79,7 @@ const numInputCls = `
 function RoomForm({ form, onChange, onSave, onCancel, isFirstRoom, baseRefPrice, currSymbol, hasOta, otaLabel }) {
   const isBase = isFirstRoom || form.isBase
 
-  const examplePrice = isBase
-    ? (parseFloat(form.baseRate) || baseRefPrice || 100)
-    : computeExamplePrice(baseRefPrice || 100, form)
+  const examplePrice = isBase ? 100 : computeExamplePrice(100, form)
 
   const canSave = form.name.trim() && parseInt(form.count) >= 1
 
@@ -107,30 +112,13 @@ function RoomForm({ form, onChange, onSave, onCancel, isFirstRoom, baseRefPrice,
 
       {/* Row 2: Pricing */}
       {isBase ? (
-        <div className="space-y-2">
-          <div className="flex items-start gap-2 p-2.5 bg-[rgba(18,95,227,0.05)] rounded-lg border border-[rgba(18,95,227,0.15)]">
-            <svg className="w-3.5 h-3.5 text-[#125fe3] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-            </svg>
-            <p className="text-[11px] text-[#125fe3] leading-snug">
-              <strong>Base room</strong> — other rooms are priced relative to this one.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <label className="text-[11px] font-semibold text-[#52647a]">Reference price</label>
-            <div className="relative w-24">
-              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[13px] text-[#a8b0bd]">{currSymbol}</span>
-              <input
-                type="number"
-                className="pl-6 pr-2 h-9 rounded border border-[#e6e9ef] bg-white text-[13px] text-[#1f2124] w-full
-                  hover:border-[#dbe0e6] focus:border-[#125fe3] focus:ring-2 focus:ring-[#125fe3]/20 outline-none transition-all"
-                placeholder="100"
-                min={0}
-                value={form.baseRate}
-                onChange={e => onChange('baseRate', e.target.value)}
-              />
-            </div>
-          </div>
+        <div className="flex items-start gap-2 p-2.5 bg-[rgba(18,95,227,0.05)] rounded-lg border border-[rgba(18,95,227,0.15)]">
+          <svg className="w-3.5 h-3.5 text-[#125fe3] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+          </svg>
+          <p className="text-[11px] text-[#125fe3] leading-snug">
+            <strong>Base room</strong> — other rooms are priced relative to this one.
+          </p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -235,7 +223,7 @@ function RoomForm({ form, onChange, onSave, onCancel, isFirstRoom, baseRefPrice,
 // ── Room Card ─────────────────────────────────────────────────────────────────
 
 function RoomListCard({ room, index, isEditing, currSymbol, baseRefPrice, hasOta, otaLabel, onEdit, onDelete, onSave, onCancel, editForm, onFormChange, isHighlighted }) {
-  const examplePrice = computeExamplePrice(baseRefPrice || 100, room)
+  const examplePrice = computeExamplePrice(100, room)
   const offsetLabel = formatOffset(room)
 
   return (
@@ -276,10 +264,10 @@ function RoomListCard({ room, index, isEditing, currSymbol, baseRefPrice, hasOta
           </div>
           <div className="flex items-center gap-2.5 mt-0.5 text-[12px] text-[#a8b0bd] flex-wrap">
             <span>{room.count || '—'} rooms</span>
-            {!room.isBase && (baseRefPrice || room.offsetValue) && (
+            {!room.isBase && room.offsetValue && (
               <>
                 <span className="text-[#e6e9ef]">·</span>
-                <span>e.g. {currSymbol}{baseRefPrice || 100} → <strong className="text-[#2e3d4b]">{currSymbol}{examplePrice}</strong></span>
+                <span>e.g. {currSymbol}100 → <strong className="text-[#2e3d4b]">{currSymbol}{examplePrice}</strong></span>
               </>
             )}
             {hasOta && room.otaPrice && (
@@ -391,7 +379,7 @@ export default function Rooms() {
   const [newForm, setNewForm] = useState(() => emptyRoom(true))
 
   const baseRoom = rooms.find(r => r.isBase) || rooms[0]
-  const baseRefPrice = parseFloat(baseRoom?.baseRate) || (baseRoom?.otaPrice ? Math.round(baseRoom.otaPrice * 0.93) : 100)
+  const baseRefPrice = 100
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
@@ -469,7 +457,7 @@ export default function Rooms() {
 
           {/* Room list */}
           <AnimatePresence mode="popLayout">
-            {rooms.map((room, index) => (
+            {sortRoomsByPrice(rooms).map((room, index) => (
               <RoomListCard
                 key={room.id}
                 room={room}

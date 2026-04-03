@@ -24,7 +24,7 @@ const ICONS = {
 }
 
 export default function Sidebar() {
-  const { steps, currentStep, data, reset } = useOnboarding()
+  const { steps, currentStep, maxStep, data, setStep, reset } = useOnboarding()
   const percent = Math.round((currentStep / (steps.length - 1)) * 100)
 
   return (
@@ -91,17 +91,22 @@ export default function Sidebar() {
           const Icon = ICONS[step.icon] || Settings
           const isComplete = i < currentStep
           const isCurrent = i === currentStep
+          const isReachable = i <= maxStep && !isCurrent
 
           return (
             <div
               key={step.id}
+              onClick={isReachable ? () => setStep(i) : undefined}
+              role={isReachable ? 'button' : undefined}
               className={`flex items-center gap-[10px] h-8 pl-[6px] pr-2 rounded-lg transition-colors duration-150 ${
                 isCurrent
                   ? 'bg-lh-brand-bg'
                   : isComplete
                   ? 'hover:bg-lh-border-light/60'
+                  : i <= maxStep
+                  ? 'hover:bg-lh-border-light/60'
                   : 'opacity-50'
-              }`}
+              } ${isReachable ? 'cursor-pointer' : ''}`}
             >
               {/* Icon */}
               <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">

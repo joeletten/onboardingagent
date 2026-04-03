@@ -37,6 +37,7 @@ const initialData = {
 
 const initialState = {
   currentStep: 0,
+  maxStep: 0,
   data: { ...initialData },
   isTyping: false,
   stepReady: false,
@@ -46,9 +47,11 @@ const initialState = {
 function reducer(state, action) {
   switch (action.type) {
     case 'SET_STEP':
-      return { ...state, currentStep: action.step, isTyping: true, stepReady: false }
-    case 'NEXT_STEP':
-      return { ...state, currentStep: state.currentStep + 1, isTyping: true, stepReady: false }
+      return { ...state, currentStep: action.step, maxStep: Math.max(state.maxStep, action.step), isTyping: true, stepReady: false }
+    case 'NEXT_STEP': {
+      const next = state.currentStep + 1
+      return { ...state, currentStep: next, maxStep: Math.max(state.maxStep, next), isTyping: true, stepReady: false }
+    }
     case 'SET_DATA':
       return { ...state, data: { ...state.data, [action.key]: action.value } }
     case 'SET_TYPING':
@@ -58,7 +61,7 @@ function reducer(state, action) {
     case 'RESET':
       return { ...initialState, resetId: state.resetId + 1 }
     case 'HYDRATE':
-      return { ...state, ...action.payload, isTyping: true, stepReady: false }
+      return { ...state, ...action.payload, maxStep: Math.max(state.maxStep, action.payload.maxStep ?? action.payload.currentStep ?? 0), isTyping: true, stepReady: false }
     default:
       return state
   }
@@ -103,7 +106,7 @@ export function OnboardingProvider({ children }) {
       const saved = localStorage.getItem(STORAGE_KEY)
       if (saved) {
         const parsed = JSON.parse(saved)
-        dispatch({ type: 'HYDRATE', payload: { currentStep: parsed.currentStep, data: parsed.data } })
+        dispatch({ type: 'HYDRATE', payload: { currentStep: parsed.currentStep, maxStep: parsed.maxStep ?? parsed.currentStep, data: parsed.data } })
       }
     } catch (e) {
       // ignore
@@ -115,12 +118,13 @@ export function OnboardingProvider({ children }) {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         currentStep: state.currentStep,
+        maxStep: state.maxStep,
         data: state.data,
       }))
     } catch (e) {
       // ignore
     }
-  }, [state.currentStep, state.data])
+  }, [state.currentStep, state.maxStep, state.data])
 
   const nextStep = useCallback(() => dispatch({ type: 'NEXT_STEP' }), [])
   const setStep = useCallback((step) => dispatch({ type: 'SET_STEP', step }), [])
