@@ -2,93 +2,48 @@
 
 import React from 'react'
 import { motion } from 'framer-motion'
-import { KompasOrb } from '../ui'
+import { KompasMessage, InteractiveArea } from '../ui'
 import { useOnboarding } from '../OnboardingContext'
 
 export default function Complete() {
   const { data } = useOnboarding()
-  const connectedOtas = data.otas?.filter(o => o.connected) || []
-
-  const summaryItems = [
-    { label: 'Property', value: data.property?.name },
-    { label: 'PMS', value: data.pms?.name ? `${data.pms.name} — Connected` : null },
-    { label: 'Channels', value: connectedOtas.length > 0 ? connectedOtas.map(o => o.name).join(', ') : 'None yet' },
-    { label: 'Room types', value: `${data.rooms?.length || 0} configured` },
-    { label: 'Competitors', value: `${data.competitors?.length || 0} tracked` },
-    { label: 'Strategy', value: data.pricing?.strategy ? `${data.pricing.strategy.charAt(0).toUpperCase() + data.pricing.strategy.slice(1)} (€${data.pricing.min}–€${data.pricing.max})` : null },
-    { label: 'North Star', value: data.northStar },
-  ]
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.6 }}
-      className="flex flex-col items-center text-center max-w-lg mx-auto"
-    >
-      {/* Celebration */}
-      <motion.div
-        initial={{ scale: 0.5, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.5, type: 'spring', bounce: 0.4 }}
-        className="mb-6"
-      >
-        <KompasOrb size="lg" />
-      </motion.div>
-
-      <motion.h2
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="text-2xl font-bold mb-2"
-      >
-        You're all set, {data.name}!
-      </motion.h2>
-
-      <motion.p
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.45 }}
-        className="text-lh-text-secondary mb-8 max-w-md"
-      >
-        Your first pricing recommendations are being generated right now.
-        I'll notify you as soon as they're ready to review and push to your channels.
-      </motion.p>
-
-      {/* Summary card */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6 }}
-        className="w-full bg-white rounded-2xl border border-lh-border shadow-sm p-6 text-left mb-6"
-      >
-        <h3 className="text-xs font-bold text-lh-text-muted uppercase tracking-wider mb-4">
-          Setup summary
-        </h3>
-        <div className="space-y-3">
-          {summaryItems.map((item, i) => (
-            <div key={i} className="flex items-center justify-between">
-              <span className="text-sm text-lh-text-secondary">{item.label}</span>
-              <span className="text-sm font-medium text-lh-text-primary">{item.value || '—'}</span>
-            </div>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* CTA */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.8 }}
-        className="space-y-3 w-full"
-      >
-        <button className="w-full py-3 rounded-xl font-semibold text-white bg-kompas-indigo hover:bg-kompas-indigo/90 transition-all shadow-md hover:shadow-lg">
-          Go to Dashboard
-        </button>
-        <p className="text-xs text-lh-text-muted">
-          You can revisit any of these settings anytime from the Settings page.
+    <>
+      <KompasMessage>
+        <p className="font-semibold text-[15px] mb-1">You're all set{data.name ? `, ${data.name}` : ''}!</p>
+        <p>
+          Everything is configured and your first pricing recommendations are being
+          generated right now. I'll notify you as soon as they're ready.
         </p>
-      </motion.div>
-    </motion.div>
+      </KompasMessage>
+
+      <InteractiveArea delay={0.3}>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.97 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4, delay: 0.45 }}
+          className="rounded-xl border border-[#e6e9ef] bg-white p-5 shadow-sm max-w-md"
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-[#e8f5e9]">
+              <svg className="w-5 h-5 text-[#2e7d32]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-[14px] font-semibold text-[#1f2124]">Setup complete</p>
+              <p className="text-[12px] text-[#52647a]">Lighthouse is ready to optimise your pricing</p>
+            </div>
+          </div>
+
+          <button
+            className="w-full h-10 rounded-lg font-medium text-[14px] text-white bg-[#125fe3] hover:bg-[#0e4fc4] active:bg-[#0b3fa0] transition-colors"
+          >
+            Go to Dashboard
+          </button>
+        </motion.div>
+      </InteractiveArea>
+    </>
   )
 }
