@@ -136,6 +136,7 @@ export function Input({
   value,
   onChange,
   onKeyDown,
+  onBlur,
   type = 'text',
   size = 'md',
   prefilled = false,
@@ -162,6 +163,7 @@ export function Input({
         value={value}
         onChange={onChange}
         onKeyDown={onKeyDown}
+        onBlur={onBlur}
         placeholder={placeholder}
         disabled={disabled}
         autoFocus={autoFocus}
@@ -173,7 +175,14 @@ export function Input({
           ${borderClass}
         `}
       />
-      {error && <p className="text-[12px] text-[#d93025] mt-1">{error}</p>}
+      {error && (
+        <p className="flex items-start gap-1 text-[12px] text-[#d93025] mt-1 leading-4">
+          <svg className="w-3.5 h-3.5 flex-shrink-0 mt-px" viewBox="0 0 16 16" fill="currentColor">
+            <path fillRule="evenodd" d="M8 15A7 7 0 108 1a7 7 0 000 14zM7.25 5a.75.75 0 011.5 0v3a.75.75 0 01-1.5 0V5zM8 10.5a.75.75 0 100 1.5.75.75 0 000-1.5z" clipRule="evenodd" />
+          </svg>
+          {error}
+        </p>
+      )}
     </div>
   )
 }

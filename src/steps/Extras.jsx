@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { KompasMessage, InteractiveArea, Button } from '../ui'
 import { useOnboarding, useAgentHighlight, ContinuePortal } from '../OnboardingContext'
+import { getCurrSymbol } from '../currency'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -16,23 +17,8 @@ export const CHARGE_BASIS_OPTIONS = [
 
 const VAT_RATES = [0, 5, 6, 7, 9, 10, 13, 20, 21, 23]
 
-const AVAILABILITY_OPTIONS = [
-  { value: 'always', label: 'Always' },
-  { value: 'season', label: 'Per season' },
-  { value: 'custom', label: 'Custom' },
-]
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-export function availabilityLabel(item) {
-  if (item.availability === 'always') return 'Always available'
-  if (item.availability === 'season') return 'Seasonal'
-  if (item.availability === 'custom') {
-    if (item.customFrom && item.customTo) return `${item.customFrom} – ${item.customTo}`
-    return 'Custom period'
-  }
-  return ''
-}
 
 export function emptyItem(itemType = 'extra') {
   return {
@@ -43,9 +29,6 @@ export function emptyItem(itemType = 'extra') {
     vatRate: 10,
     chargeBasis: 'per_room_night',
     channels: 'all',
-    availability: 'always',
-    customFrom: '',
-    customTo: '',
     percentage: '',
   }
 }
@@ -68,9 +51,9 @@ function TypeBadge({ type }) {
 
 function ChannelBadge({ channels }) {
   return channels === 'direct' ? (
-    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-purple-50 text-purple-700">Direct only</span>
+    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-purple-50 text-purple-700">Your website only</span>
   ) : (
-    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">All channels</span>
+    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">OTAs + direct</span>
   )
 }
 
@@ -97,7 +80,7 @@ function ItemIcon({ type }) {
 
 // ── Add Form ──────────────────────────────────────────────────────────────────
 
-export function AddForm({ onSave, onCancel, initial }) {
+export function AddForm({ onSave, onCancel, initial, currSymbol = '€' }) {
   const [form, setForm] = useState(initial || emptyItem('extra'))
   const isDiscount = form.itemType === 'discount'
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
@@ -158,7 +141,7 @@ export function AddForm({ onSave, onCancel, initial }) {
           <div className="w-24">
             <label className="text-[11px] font-semibold text-[#52647a] block mb-1">Price</label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-[#a8b0bd] pointer-events-none">€</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-[#a8b0bd] pointer-events-none">{currSymbol}</span>
               <input
                 type="number" min={0} placeholder="0.00"
                 className={`${inputCls} pl-6`}
@@ -187,42 +170,29 @@ export function AddForm({ onSave, onCancel, initial }) {
         </div>
       )}
 
-      {/* Row 3: Channels + Availability inline */}
-      <div className="flex items-end gap-3 flex-wrap">
-        <div className="flex items-center gap-1.5">
-          <label className="text-[11px] font-semibold text-[#52647a]">Channels</label>
-          <div className="flex rounded-lg border border-[#e6e9ef] overflow-hidden">
-            {[['all', 'All'], ['direct', 'Direct only']].map(([val, lbl]) => (
-              <button key={val} onClick={() => set('channels', val)} className={`px-2.5 py-1.5 text-[11px] font-medium transition-all ${
+      {/* Row 3: Channels */}
+      <div>
+        <label className="text-[11px] font-semibold text-[#52647a] block mb-1.5">Availability</label>
+        <div className="flex gap-2">
+          {[
+            ['all', 'All channels', 'OTAs + your website'],
+            ['direct', 'Direct only', 'Your website only'],
+          ].map(([val, title, desc]) => (
+            <button
+              key={val}
+              onClick={() => set('channels', val)}
+              className={`flex-1 p-2.5 rounded-lg border text-left transition-all ${
                 form.channels === val
-                  ? 'bg-[rgba(18,95,227,0.06)] text-[#125fe3]'
-                  : 'bg-white text-[#52647a] hover:bg-[#f9fafb]'
-              }`}>{lbl}</button>
-            ))}
-          </div>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <label className="text-[11px] font-semibold text-[#52647a]">Available</label>
-          <div className="flex rounded-lg border border-[#e6e9ef] overflow-hidden">
-            {AVAILABILITY_OPTIONS.map(opt => (
-              <button key={opt.value} onClick={() => set('availability', opt.value)} className={`px-2.5 py-1.5 text-[11px] font-medium transition-all ${
-                form.availability === opt.value
-                  ? 'bg-[rgba(18,95,227,0.06)] text-[#125fe3]'
-                  : 'bg-white text-[#52647a] hover:bg-[#f9fafb]'
-              }`}>
-                {opt.label}
-              </button>
-            ))}
-          </div>
+                  ? 'border-[#125fe3] bg-[rgba(18,95,227,0.05)]'
+                  : 'border-[#e6e9ef] bg-white hover:border-[#125fe3]/30'
+              }`}
+            >
+              <p className={`text-[12px] font-semibold ${form.channels === val ? 'text-[#125fe3]' : 'text-[#1f2124]'}`}>{title}</p>
+              <p className="text-[10px] text-[#a8b0bd] mt-0.5 leading-snug">{desc}</p>
+            </button>
+          ))}
         </div>
       </div>
-      {form.availability === 'custom' && (
-        <div className="flex items-center gap-2">
-          <input type="date" className={`${inputCls} flex-1`} value={form.customFrom} onChange={e => set('customFrom', e.target.value)} />
-          <span className="text-[#a8b0bd] text-sm flex-shrink-0">→</span>
-          <input type="date" className={`${inputCls} flex-1`} value={form.customTo} onChange={e => set('customTo', e.target.value)} />
-        </div>
-      )}
 
       <div className="flex gap-2">
         <Button onClick={() => canSave && onSave(form)} disabled={!canSave}>Save</Button>
@@ -234,7 +204,7 @@ export function AddForm({ onSave, onCancel, initial }) {
 
 // ── Item Card ─────────────────────────────────────────────────────────────────
 
-function ItemCard({ item, onDelete, isHighlighted }) {
+function ItemCard({ item, onDelete, onEdit, isEditing, onSaveEdit, isHighlighted, currSymbol = '€' }) {
   const isDiscount = item.itemType === 'discount'
   const basis = CHARGE_BASIS_OPTIONS.find(b => b.value === item.chargeBasis)?.label
 
@@ -260,25 +230,51 @@ function ItemCard({ item, onDelete, isHighlighted }) {
               <span className="text-green-700 font-semibold">−{item.percentage}%</span>
             ) : (
               <>
-                <span>€{item.price}</span>
+                <span>{currSymbol}{item.price}</span>
                 {item.vatRate > 0 && <><span className="text-[#e6e9ef]">·</span><span>{item.vatRate}% VAT</span></>}
                 {basis && <><span className="text-[#e6e9ef]">·</span><span>{basis}</span></>}
               </>
             )}
-            <span className="text-[#e6e9ef]">·</span>
-            <span>{availabilityLabel(item)}</span>
           </div>
         </div>
 
-        <button
-          onClick={onDelete}
-          className="p-1.5 rounded text-[#a8b0bd] hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path d="M18 6L6 18M6 6l12 12" />
-          </svg>
-        </button>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <Button variant="secondary" size="sm" onClick={onEdit}>
+            {isEditing ? 'Close' : 'Edit'}
+          </Button>
+          <button
+            onClick={onDelete}
+            className="p-1.5 rounded text-[#a8b0bd] hover:text-red-500 hover:bg-red-50 transition-colors"
+            title="Delete"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14M10 11v6M14 11v6" />
+            </svg>
+          </button>
+        </div>
       </div>
+
+      {/* Inline edit form */}
+      <AnimatePresence>
+        {isEditing && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="px-4 pb-4 border-t border-[#f2f4f8] pt-3">
+              <AddForm
+                initial={item}
+                currSymbol={currSymbol}
+                onSave={(updated) => onSaveEdit({ ...updated, id: item.id })}
+                onCancel={onEdit}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }
@@ -288,6 +284,10 @@ function ItemCard({ item, onDelete, isHighlighted }) {
 export default function Extras() {
   const { data, setData, nextStep } = useOnboarding()
   const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState(null)
+
+  const currency = data.settings?.localization?.currency || 'EUR'
+  const currSymbol = getCurrSymbol(currency)
 
   // Items live in context so the global chat input can also add/remove them
   const extrasHighlighted = useAgentHighlight('extras')
@@ -298,8 +298,14 @@ export default function Extras() {
     setShowForm(false)
   }
 
+  const updateItem = (updated) => {
+    setData('extras', items.map(i => i.id === updated.id ? updated : i))
+    setEditingId(null)
+  }
+
   const removeItem = (id) => {
     setData('extras', items.filter(i => i.id !== id))
+    if (editingId === id) setEditingId(null)
   }
 
   return (
@@ -316,7 +322,16 @@ export default function Extras() {
           {/* List */}
           <AnimatePresence mode="popLayout">
             {items.map(item => (
-              <ItemCard key={item.id} item={item} onDelete={() => removeItem(item.id)} isHighlighted={extrasHighlighted} />
+              <ItemCard
+                key={item.id}
+                item={item}
+                onDelete={() => removeItem(item.id)}
+                onEdit={() => setEditingId(editingId === item.id ? null : item.id)}
+                isEditing={editingId === item.id}
+                onSaveEdit={updateItem}
+                isHighlighted={extrasHighlighted}
+                currSymbol={currSymbol}
+              />
             ))}
           </AnimatePresence>
 
@@ -340,7 +355,7 @@ export default function Extras() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
               >
-                <AddForm onSave={addItem} onCancel={() => setShowForm(false)} />
+                <AddForm onSave={addItem} onCancel={() => setShowForm(false)} currSymbol={currSymbol} />
               </motion.div>
             )}
           </AnimatePresence>

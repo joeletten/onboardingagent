@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { KompasMessage, InteractiveArea, SelectCard, PrimaryButton } from '../ui'
 import { useOnboarding } from '../OnboardingContext'
+import { getCurrSymbol } from '../currency'
 
 const STRATEGIES = [
   {
@@ -26,6 +27,7 @@ const STRATEGIES = [
 
 export default function Pricing() {
   const { data, setData, nextStep } = useOnboarding()
+  const currSymbol = getCurrSymbol(data.settings?.localization?.currency || 'EUR')
   const [strategy, setStrategy] = useState(data.pricing?.strategy || '')
   const [minPrice, setMinPrice] = useState(data.pricing?.min || 80)
   const [maxPrice, setMaxPrice] = useState(data.pricing?.max || 350)
@@ -62,7 +64,7 @@ export default function Pricing() {
               <div className="flex-1">
                 <label className="text-xs text-lh-text-muted mb-1 block">Minimum</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-lh-text-muted">€</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-lh-text-muted">{currSymbol}</span>
                   <input
                     type="number"
                     value={minPrice}
@@ -76,7 +78,7 @@ export default function Pricing() {
               <div className="flex-1">
                 <label className="text-xs text-lh-text-muted mb-1 block">Maximum</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-lh-text-muted">€</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-lh-text-muted">{currSymbol}</span>
                   <input
                     type="number"
                     value={maxPrice}
