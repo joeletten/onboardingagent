@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react'
 import { KompasMessage, InteractiveArea, ConnectButton, Button, Card } from '../ui'
-import { useOnboarding } from '../OnboardingContext'
+import { useOnboarding, ContinuePortal } from '../OnboardingContext'
 import { OTA_OPTIONS } from '../mockData'
 import IconBrand from '../IconBrand'
 
@@ -89,18 +89,21 @@ export default function OTA() {
             </Card>
           ))}
 
-          <div className="flex items-center gap-3 pt-2">
-            <Button onClick={handleContinue}>
-              {anyConnected ? 'Continue' : 'Skip for now'}
-            </Button>
-            {!anyConnected && (
-              <p className="text-[12px] text-[#a8b0bd]">
-                You can always connect channels later
-              </p>
-            )}
-          </div>
         </div>
       </InteractiveArea>
+
+      <ContinuePortal>
+        <div className="flex items-center gap-3">
+          <Button onClick={handleContinue}>
+            {anyConnected ? 'Continue' : 'Skip for now'}
+          </Button>
+          {!anyConnected && (
+            <p className="text-[12px] text-[#a8b0bd]">
+              You can always connect channels later
+            </p>
+          )}
+        </div>
+      </ContinuePortal>
     </>
   )
 }

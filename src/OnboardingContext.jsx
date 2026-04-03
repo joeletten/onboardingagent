@@ -1,6 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useReducer, useEffect, useCallback, useState, useRef } from 'react'
+import ReactDOM from 'react-dom'
 
 const STORAGE_KEY = 'lighthouse_onboarding'
 
@@ -67,6 +68,9 @@ const OnboardingContext = createContext(null)
 
 export function OnboardingProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState)
+
+  // Portal target for continue buttons — rendered in Chat.jsx after chat messages
+  const continuePortalRef = useRef(null)
 
   // Agent highlight system — tracks which data keys were recently modified by the agent
   // Keys map to timestamp of when they were highlighted; auto-clears after 2s
@@ -141,6 +145,7 @@ export function OnboardingProvider({ children }) {
       reset,
       highlights,
       highlightKeys,
+      continuePortalRef,
     }}>
       {children}
     </OnboardingContext.Provider>
@@ -160,4 +165,19 @@ export function useOnboarding() {
 export function useAgentHighlight(key) {
   const { highlights } = useOnboarding()
   return !!highlights[key]
+}
+
+/**
+ * Renders children into the continue-button portal target in Chat.jsx,
+ * so the continue button always appears after chat messages.
+ */
+export function ContinuePortal({ children }) {
+  const { continuePortalRef } = useOnboarding()
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+  if (!mounted || !continuePortalRef.current) return null
+  return ReactDOM.createPortal(
+    <div className="mt-4 ml-11">{children}</div>,
+    continuePortalRef.current
+  )
 }

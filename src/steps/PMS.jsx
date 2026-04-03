@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { KompasMessage, InteractiveArea, Button, Card } from '../ui'
-import { useOnboarding } from '../OnboardingContext'
+import { useOnboarding, ContinuePortal } from '../OnboardingContext'
 import { PMS_OPTIONS } from '../mockData'
 
 // Letter-based brand icon matching the visual style of IconBrand
@@ -197,22 +197,23 @@ export default function PMS() {
             </Card>
           ))}
 
-          {/* Skip */}
-          {!connectedPms && (
-            <div className="pt-1 border-t border-[#e6e9ef]">
-              <button
-                onClick={() => {
-                  setData('pms', null)
-                  nextStep()
-                }}
-                className="text-[12px] text-[#a8b0bd] hover:text-[#52647a] transition-colors"
-              >
-                I don't use a PMS — set up rooms manually →
-              </button>
-            </div>
-          )}
         </div>
       </InteractiveArea>
+
+      {/* Skip — portaled after chat messages */}
+      {!connectedPms && (
+        <ContinuePortal>
+          <button
+            onClick={() => {
+              setData('pms', null)
+              nextStep()
+            }}
+            className="text-[12px] text-[#a8b0bd] hover:text-[#52647a] transition-colors"
+          >
+            I don't use a PMS — set up rooms manually →
+          </button>
+        </ContinuePortal>
+      )}
 
       {/* Connect modal */}
       {activeModal && modalPms && (

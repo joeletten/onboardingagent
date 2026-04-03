@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { KompasMessage, InteractiveArea, Button, Input, Toggle } from '../ui'
-import { useOnboarding, useAgentHighlight } from '../OnboardingContext'
+import { useOnboarding, useAgentHighlight, ContinuePortal } from '../OnboardingContext'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -79,191 +79,152 @@ function RoomForm({ form, onChange, onSave, onCancel, isFirstRoom, baseRefPrice,
   const canSave = form.name.trim() && parseInt(form.count) >= 1
 
   return (
-    <div className="border-t border-[#e6e9ef] pt-4 mt-1 space-y-5">
+    <div className="border-t border-[#e6e9ef] pt-3 mt-1 space-y-3">
 
-      <FormSection title="Room Details">
-        <Input
-          label="Room name"
-          placeholder="e.g. Deluxe King"
-          value={form.name}
-          onChange={e => onChange('name', e.target.value)}
-          size="sm"
-          autoFocus
-        />
-        <Input
-          label="Number of rooms"
-          type="number"
-          placeholder="e.g. 4"
-          value={form.count}
-          onChange={e => onChange('count', e.target.value)}
-          size="sm"
-          className="max-w-[100px]"
-        />
-      </FormSection>
+      {/* Row 1: Name + Count side by side */}
+      <div className="flex items-end gap-3">
+        <div className="flex-1">
+          <Input
+            label="Room name"
+            placeholder="e.g. Deluxe King"
+            value={form.name}
+            onChange={e => onChange('name', e.target.value)}
+            size="sm"
+            autoFocus
+          />
+        </div>
+        <div className="w-20">
+          <Input
+            label="Count"
+            type="number"
+            placeholder="4"
+            value={form.count}
+            onChange={e => onChange('count', e.target.value)}
+            size="sm"
+          />
+        </div>
+      </div>
 
-      <FormSection title="Pricing">
-        {isBase ? (
-          <div className="space-y-3">
-            <div className="flex items-start gap-2.5 p-3 bg-[rgba(18,95,227,0.05)] rounded-lg border border-[rgba(18,95,227,0.15)]">
-              <svg className="w-4 h-4 text-[#125fe3] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-              </svg>
-              <p className="text-[12px] text-[#125fe3] leading-relaxed">
-                <strong>This is your base room.</strong> Its price is variable — all other room types will be priced relative to it.
-              </p>
-            </div>
-            <div>
-              <label className="text-[12px] font-bold text-[#1f2124] uppercase tracking-wide block mb-1.5">
-                Reference price <span className="font-normal normal-case text-[#a8b0bd]">(for preview)</span>
-              </label>
-              <div className="relative max-w-[120px]">
-                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[14px] text-[#a8b0bd]">{currSymbol}</span>
-                <input
-                  type="number"
-                  className="pl-6 pr-2.5 h-11 rounded border border-[#e6e9ef] bg-white text-[14px] text-[#1f2124] w-full
-                    hover:border-[#dbe0e6] focus:border-[#125fe3] focus:ring-2 focus:ring-[#125fe3]/20 outline-none transition-all"
-                  placeholder="100"
-                  min={0}
-                  value={form.baseRate}
-                  onChange={e => onChange('baseRate', e.target.value)}
-                />
-              </div>
+      {/* Row 2: Pricing */}
+      {isBase ? (
+        <div className="space-y-2">
+          <div className="flex items-start gap-2 p-2.5 bg-[rgba(18,95,227,0.05)] rounded-lg border border-[rgba(18,95,227,0.15)]">
+            <svg className="w-3.5 h-3.5 text-[#125fe3] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            </svg>
+            <p className="text-[11px] text-[#125fe3] leading-snug">
+              <strong>Base room</strong> — other rooms are priced relative to this one.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-[11px] font-semibold text-[#52647a]">Reference price</label>
+            <div className="relative w-24">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[13px] text-[#a8b0bd]">{currSymbol}</span>
+              <input
+                type="number"
+                className="pl-6 pr-2 h-9 rounded border border-[#e6e9ef] bg-white text-[13px] text-[#1f2124] w-full
+                  hover:border-[#dbe0e6] focus:border-[#125fe3] focus:ring-2 focus:ring-[#125fe3]/20 outline-none transition-all"
+                placeholder="100"
+                min={0}
+                value={form.baseRate}
+                onChange={e => onChange('baseRate', e.target.value)}
+              />
             </div>
           </div>
-        ) : (
-          <div className="space-y-3">
-            <div>
-              <label className="text-[12px] font-bold text-[#1f2124] uppercase tracking-wide block mb-2">
-                Price offset from base room
-              </label>
-              <div className="flex items-center gap-2">
-                {/* Direction toggle */}
-                <div className="flex rounded border border-[#e6e9ef] overflow-hidden">
-                  {['+', '-'].map(dir => (
-                    <button
-                      key={dir}
-                      type="button"
-                      onClick={() => onChange('offsetDirection', dir)}
-                      className={`px-3.5 h-11 text-[14px] font-bold transition-colors ${
-                        form.offsetDirection === dir
-                          ? 'bg-[#125fe3] text-white'
-                          : 'bg-white text-[#52647a] hover:bg-[#f9fafb]'
-                      }`}
-                    >
-                      {dir}
-                    </button>
-                  ))}
-                </div>
-                {/* Value */}
-                <input
-                  type="number"
-                  className="px-2.5 h-11 rounded border border-[#e6e9ef] bg-white text-[14px] text-[#1f2124] w-20 text-center
-                    hover:border-[#dbe0e6] focus:border-[#125fe3] focus:ring-2 focus:ring-[#125fe3]/20 outline-none transition-all"
-                  placeholder="20"
-                  min={0}
-                  value={form.offsetValue}
-                  onChange={e => onChange('offsetValue', e.target.value)}
-                />
-                {/* Type toggle */}
-                <div className="flex rounded border border-[#e6e9ef] overflow-hidden">
-                  {[['percentage', '%'], ['fixed', currSymbol]].map(([val, lbl]) => (
-                    <button
-                      key={val}
-                      type="button"
-                      onClick={() => onChange('offsetType', val)}
-                      className={`px-3.5 h-11 text-[14px] font-semibold transition-colors ${
-                        form.offsetType === val
-                          ? 'bg-[#125fe3] text-white'
-                          : 'bg-white text-[#52647a] hover:bg-[#f9fafb]'
-                      }`}
-                    >
-                      {lbl}
-                    </button>
-                  ))}
-                </div>
-              </div>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <label className="text-[11px] font-semibold text-[#52647a] block">Price offset from base</label>
+          <div className="flex items-center gap-1.5">
+            <div className="flex rounded border border-[#e6e9ef] overflow-hidden">
+              {['+', '-'].map(dir => (
+                <button
+                  key={dir}
+                  type="button"
+                  onClick={() => onChange('offsetDirection', dir)}
+                  className={`px-3 h-9 text-[13px] font-bold transition-colors ${
+                    form.offsetDirection === dir
+                      ? 'bg-[#125fe3] text-white'
+                      : 'bg-white text-[#52647a] hover:bg-[#f9fafb]'
+                  }`}
+                >
+                  {dir}
+                </button>
+              ))}
             </div>
-
-            {/* Pricing preview */}
-            <div className="rounded-lg border border-[#e6e9ef] bg-[#f9fafb] p-3 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[12px] text-[#a8b0bd]">
-                  When base = {currSymbol}{baseRefPrice || 100}
-                </span>
-                <span className="text-[14px] font-bold text-[#1f2124]">
-                  → {currSymbol}{examplePrice}
-                  {form.offsetValue ? (
-                    <span className="ml-1.5 text-[12px] font-normal text-[#a8b0bd]">
-                      ({form.offsetDirection === '-' ? '−' : '+'}{form.offsetValue}{form.offsetType === 'percentage' ? '%' : currSymbol})
-                    </span>
-                  ) : null}
-                </span>
-              </div>
-              {hasOta && form.otaPrice && (
-                <div className="flex items-center gap-1.5 pt-1.5 border-t border-[#e6e9ef]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
-                  <span className="text-[12px] text-[#a8b0bd]">
-                    {otaLabel} currently: <strong className="text-[#2e3d4b]">{currSymbol}{form.otaPrice}</strong>
-                  </span>
-                </div>
-              )}
+            <input
+              type="number"
+              className="px-2 h-9 rounded border border-[#e6e9ef] bg-white text-[13px] text-[#1f2124] w-16 text-center
+                hover:border-[#dbe0e6] focus:border-[#125fe3] focus:ring-2 focus:ring-[#125fe3]/20 outline-none transition-all"
+              placeholder="20"
+              min={0}
+              value={form.offsetValue}
+              onChange={e => onChange('offsetValue', e.target.value)}
+            />
+            <div className="flex rounded border border-[#e6e9ef] overflow-hidden">
+              {[['percentage', '%'], ['fixed', currSymbol]].map(([val, lbl]) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => onChange('offsetType', val)}
+                  className={`px-3 h-9 text-[13px] font-semibold transition-colors ${
+                    form.offsetType === val
+                      ? 'bg-[#125fe3] text-white'
+                      : 'bg-white text-[#52647a] hover:bg-[#f9fafb]'
+                  }`}
+                >
+                  {lbl}
+                </button>
+              ))}
             </div>
+            {form.offsetValue ? (
+              <span className="text-[12px] text-[#a8b0bd] ml-1">
+                = {currSymbol}{examplePrice}
+              </span>
+            ) : null}
           </div>
-        )}
-      </FormSection>
+          {hasOta && form.otaPrice && (
+            <p className="text-[11px] text-[#a8b0bd]">
+              {otaLabel}: <strong className="text-[#2e3d4b]">{currSymbol}{form.otaPrice}</strong>
+            </p>
+          )}
+        </div>
+      )}
 
-      <FormSection title="Availability">
+      {/* Row 3: Guests (all on one line) + Online toggle */}
+      <div className="flex items-end gap-4 flex-wrap">
+        <div className="flex items-center gap-2">
+          {[
+            { label: 'Guests', field: 'defaultGuests', max: 20 },
+            { label: 'Min', field: 'minGuests', max: 20 },
+            { label: 'Max', field: 'maxGuests', max: 20 },
+            { label: 'Children', field: 'maxKids', max: 10 },
+            { label: 'Babies', field: 'maxBabies', max: 10 },
+          ].map(({ label, field, max }) => (
+            <div key={field} className="flex flex-col items-center gap-0.5">
+              <label className="text-[9px] font-bold text-[#a8b0bd] uppercase tracking-wide">{label}</label>
+              <input
+                type="number"
+                className="px-1.5 py-1.5 rounded border border-[#e6e9ef] bg-white text-[13px] text-center text-[#1f2124]
+                  hover:border-[#dbe0e6] focus:border-[#125fe3] focus:ring-2 focus:ring-[#125fe3]/20
+                  outline-none transition-all w-12"
+                min={0}
+                max={max}
+                value={form[field]}
+                onChange={e => onChange(field, parseInt(e.target.value) || 0)}
+              />
+            </div>
+          ))}
+        </div>
         <Toggle
           checked={form.bookableOnline}
           onChange={val => onChange('bookableOnline', val)}
-          label="Bookable online"
+          label="Online"
           size="sm"
         />
-      </FormSection>
+      </div>
 
-      <FormSection title="Guests">
-        <div className="space-y-2.5">
-          <div className="flex items-center gap-3 flex-wrap">
-            {[
-              { label: 'Default', field: 'defaultGuests' },
-              { label: 'Minimum', field: 'minGuests' },
-              { label: 'Maximum', field: 'maxGuests' },
-            ].map(({ label, field }) => (
-              <div key={field} className="flex flex-col items-center gap-1">
-                <label className="text-[10px] font-bold text-[#a8b0bd] uppercase tracking-wide">{label}</label>
-                <input
-                  type="number"
-                  className={numInputCls}
-                  min={0}
-                  max={20}
-                  value={form[field]}
-                  onChange={e => onChange(field, parseInt(e.target.value) || 0)}
-                />
-              </div>
-            ))}
-          </div>
-          <div className="flex items-center gap-3">
-            {[
-              { label: 'Max children', field: 'maxKids' },
-              { label: 'Max babies', field: 'maxBabies' },
-            ].map(({ label, field }) => (
-              <div key={field} className="flex flex-col items-center gap-1">
-                <label className="text-[10px] font-bold text-[#a8b0bd] uppercase tracking-wide">{label}</label>
-                <input
-                  type="number"
-                  className={numInputCls}
-                  min={0}
-                  max={10}
-                  value={form[field]}
-                  onChange={e => onChange(field, parseInt(e.target.value) || 0)}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      </FormSection>
-
-      <div className="flex items-center gap-2 pt-1">
+      <div className="flex items-center gap-2">
         <Button onClick={onSave} disabled={!canSave}>Save room</Button>
         <Button variant="ghost" onClick={onCancel}>Cancel</Button>
       </div>
@@ -590,19 +551,22 @@ export default function Rooms() {
             </button>
           )}
 
-          {/* Continue */}
-          {rooms.length > 0 && (
-            <div className="pt-2">
-              <Button onClick={handleContinue} disabled={showNewForm && !newForm.name}>
-                Save rooms & continue
-              </Button>
-              <p className="text-[12px] text-[#a8b0bd] mt-2">
-                {rooms.length} room type{rooms.length !== 1 ? 's' : ''} · {rooms.reduce((s, r) => s + (parseInt(r.count) || 0), 0)} rooms total
-              </p>
-            </div>
-          )}
         </div>
       </InteractiveArea>
+
+      {/* Continue — portaled after chat messages */}
+      {rooms.length > 0 && (
+        <ContinuePortal>
+          <div>
+            <Button onClick={handleContinue} disabled={showNewForm && !newForm.name}>
+              Save rooms & continue
+            </Button>
+            <p className="text-[12px] text-[#a8b0bd] mt-2">
+              {rooms.length} room type{rooms.length !== 1 ? 's' : ''} · {rooms.reduce((s, r) => s + (parseInt(r.count) || 0), 0)} rooms total
+            </p>
+          </div>
+        </ContinuePortal>
+      )}
     </>
   )
 }

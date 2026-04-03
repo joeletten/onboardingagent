@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { KompasMessage, InteractiveArea, Button } from '../ui'
-import { useOnboarding, useAgentHighlight } from '../OnboardingContext'
+import { useOnboarding, useAgentHighlight, ContinuePortal } from '../OnboardingContext'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -117,37 +117,36 @@ export function AddForm({ onSave, onCancel, initial }) {
     }`
 
   return (
-    <div className="bg-white rounded-xl border-2 border-dashed border-[rgba(18,95,227,0.25)] p-5 space-y-4">
-      {/* Item type */}
-      <div>
-        <p className={labelCls}>What are you adding?</p>
-        <div className="flex gap-2">
+    <div className="bg-white rounded-xl border-2 border-dashed border-[rgba(18,95,227,0.25)] p-4 space-y-3">
+      {/* Row 1: Type + Name side by side */}
+      <div className="flex items-end gap-2">
+        <div className="flex rounded-lg border border-[#e6e9ef] overflow-hidden flex-shrink-0">
           {['extra', 'fee', 'discount'].map(t => (
-            <button key={t} onClick={() => set('itemType', t)} className={segBtn(form.itemType === t)}>{t}</button>
+            <button key={t} onClick={() => set('itemType', t)} className={`px-3 py-2 text-[12px] font-semibold capitalize transition-all ${
+              form.itemType === t ? 'bg-[#125fe3] text-white' : 'bg-white text-[#52647a] hover:bg-[#f9fafb]'
+            }`}>{t}</button>
           ))}
+        </div>
+        <div className="flex-1">
+          <input
+            className={inputCls}
+            placeholder={isDiscount ? 'e.g. Early bird discount' : form.itemType === 'fee' ? 'e.g. Cleaning fee' : 'e.g. Breakfast'}
+            value={form.name}
+            onChange={e => set('name', e.target.value)}
+            autoFocus
+          />
         </div>
       </div>
 
-      {/* Name */}
-      <div>
-        <label className={labelCls}>Name</label>
-        <input
-          className={inputCls}
-          placeholder={isDiscount ? 'e.g. Early bird discount' : form.itemType === 'fee' ? 'e.g. Cleaning fee' : 'e.g. Breakfast'}
-          value={form.name}
-          onChange={e => set('name', e.target.value)}
-          autoFocus
-        />
-      </div>
-
+      {/* Row 2: Price/Discount + VAT + Charge basis */}
       {isDiscount ? (
-        <div>
-          <label className={labelCls}>Discount percentage</label>
-          <div className="relative max-w-[130px]">
+        <div className="flex items-center gap-2">
+          <label className="text-[11px] font-semibold text-[#52647a]">Discount</label>
+          <div className="relative w-24">
             <input
               type="number" min={1} max={100}
-              className={inputCls}
-              placeholder="e.g. 10"
+              className={`${inputCls} pr-7`}
+              placeholder="10"
               value={form.percentage}
               onChange={e => set('percentage', e.target.value)}
             />
@@ -155,73 +154,77 @@ export function AddForm({ onSave, onCancel, initial }) {
           </div>
         </div>
       ) : (
-        <>
-          {/* Price + VAT */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>Price</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-[#a8b0bd] pointer-events-none">€</span>
-                <input
-                  type="number" min={0} placeholder="0.00"
-                  className={`${inputCls} pl-6`}
-                  value={form.price}
-                  onChange={e => set('price', e.target.value)}
-                />
-              </div>
-            </div>
-            <div>
-              <label className={labelCls}>VAT rate</label>
-              <select className={inputCls} value={form.vatRate} onChange={e => set('vatRate', e.target.value)}>
-                {VAT_RATES.map(r => <option key={r} value={r}>{r}%</option>)}
-              </select>
+        <div className="flex items-end gap-2 flex-wrap">
+          <div className="w-24">
+            <label className="text-[11px] font-semibold text-[#52647a] block mb-1">Price</label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-[#a8b0bd] pointer-events-none">€</span>
+              <input
+                type="number" min={0} placeholder="0.00"
+                className={`${inputCls} pl-6`}
+                value={form.price}
+                onChange={e => set('price', e.target.value)}
+              />
             </div>
           </div>
-
-          {/* Charge basis */}
-          <div>
-            <label className={labelCls}>Charge basis</label>
-            <div className="grid grid-cols-2 gap-2">
-              {CHARGE_BASIS_OPTIONS.map(opt => (
-                <button key={opt.value} onClick={() => set('chargeBasis', opt.value)} className={optBtn(form.chargeBasis === opt.value)}>
-                  {opt.label}
-                </button>
-              ))}
-            </div>
+          <div className="w-20">
+            <label className="text-[11px] font-semibold text-[#52647a] block mb-1">VAT</label>
+            <select className={inputCls} value={form.vatRate} onChange={e => set('vatRate', e.target.value)}>
+              {VAT_RATES.map(r => <option key={r} value={r}>{r}%</option>)}
+            </select>
           </div>
-        </>
+          <div className="flex rounded-lg border border-[#e6e9ef] overflow-hidden flex-shrink-0">
+            {CHARGE_BASIS_OPTIONS.map(opt => (
+              <button key={opt.value} onClick={() => set('chargeBasis', opt.value)} className={`px-2.5 py-2 text-[11px] font-medium transition-all ${
+                form.chargeBasis === opt.value
+                  ? 'bg-[rgba(18,95,227,0.06)] text-[#125fe3]'
+                  : 'bg-white text-[#52647a] hover:bg-[#f9fafb]'
+              }`}>
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
-      {/* Channels */}
-      <div>
-        <label className={labelCls}>Available on</label>
-        <div className="flex gap-2">
-          {[['all', 'All channels'], ['direct', 'Direct booking only']].map(([val, lbl]) => (
-            <button key={val} onClick={() => set('channels', val)} className={optBtn(form.channels === val)}>{lbl}</button>
-          ))}
-        </div>
-      </div>
-
-      {/* Availability */}
-      <div>
-        <label className={labelCls}>Availability period</label>
-        <div className="flex gap-2">
-          {AVAILABILITY_OPTIONS.map(opt => (
-            <button key={opt.value} onClick={() => set('availability', opt.value)} className={optBtn(form.availability === opt.value)}>
-              {opt.label}
-            </button>
-          ))}
-        </div>
-        {form.availability === 'custom' && (
-          <div className="flex items-center gap-2 mt-2">
-            <input type="date" className={`${inputCls} flex-1`} value={form.customFrom} onChange={e => set('customFrom', e.target.value)} />
-            <span className="text-[#a8b0bd] text-sm flex-shrink-0">→</span>
-            <input type="date" className={`${inputCls} flex-1`} value={form.customTo} onChange={e => set('customTo', e.target.value)} />
+      {/* Row 3: Channels + Availability inline */}
+      <div className="flex items-end gap-3 flex-wrap">
+        <div className="flex items-center gap-1.5">
+          <label className="text-[11px] font-semibold text-[#52647a]">Channels</label>
+          <div className="flex rounded-lg border border-[#e6e9ef] overflow-hidden">
+            {[['all', 'All'], ['direct', 'Direct only']].map(([val, lbl]) => (
+              <button key={val} onClick={() => set('channels', val)} className={`px-2.5 py-1.5 text-[11px] font-medium transition-all ${
+                form.channels === val
+                  ? 'bg-[rgba(18,95,227,0.06)] text-[#125fe3]'
+                  : 'bg-white text-[#52647a] hover:bg-[#f9fafb]'
+              }`}>{lbl}</button>
+            ))}
           </div>
-        )}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <label className="text-[11px] font-semibold text-[#52647a]">Available</label>
+          <div className="flex rounded-lg border border-[#e6e9ef] overflow-hidden">
+            {AVAILABILITY_OPTIONS.map(opt => (
+              <button key={opt.value} onClick={() => set('availability', opt.value)} className={`px-2.5 py-1.5 text-[11px] font-medium transition-all ${
+                form.availability === opt.value
+                  ? 'bg-[rgba(18,95,227,0.06)] text-[#125fe3]'
+                  : 'bg-white text-[#52647a] hover:bg-[#f9fafb]'
+              }`}>
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
+      {form.availability === 'custom' && (
+        <div className="flex items-center gap-2">
+          <input type="date" className={`${inputCls} flex-1`} value={form.customFrom} onChange={e => set('customFrom', e.target.value)} />
+          <span className="text-[#a8b0bd] text-sm flex-shrink-0">→</span>
+          <input type="date" className={`${inputCls} flex-1`} value={form.customTo} onChange={e => set('customTo', e.target.value)} />
+        </div>
+      )}
 
-      <div className="flex gap-2 pt-1">
+      <div className="flex gap-2">
         <Button onClick={() => canSave && onSave(form)} disabled={!canSave}>Save</Button>
         <Button variant="ghost" onClick={onCancel}>Cancel</Button>
       </div>
@@ -356,28 +359,29 @@ export default function Extras() {
             </button>
           )}
 
-          {/* Continue / Skip */}
-          {!showForm && (
-            <div className={items.length > 0 ? 'pt-2' : 'pt-1 border-t border-[#e6e9ef]'}>
-              {items.length > 0 ? (
-                <div>
-                  <Button onClick={() => { setData('extras', items); nextStep() }}>Continue</Button>
-                  <p className="text-[12px] text-[#a8b0bd] mt-2">
-                    {items.length} item{items.length !== 1 ? 's' : ''} added
-                  </p>
-                </div>
-              ) : (
-                <button
-                  onClick={() => { setData('extras', []); nextStep() }}
-                  className="text-[12px] text-[#a8b0bd] hover:text-[#52647a] transition-colors"
-                >
-                  Skip for now — add extras later →
-                </button>
-              )}
-            </div>
-          )}
         </div>
       </InteractiveArea>
+
+      {/* Continue / Skip — portaled after chat messages */}
+      {!showForm && (
+        <ContinuePortal>
+          {items.length > 0 ? (
+            <div>
+              <Button onClick={() => { setData('extras', items); nextStep() }}>Continue</Button>
+              <p className="text-[12px] text-[#a8b0bd] mt-2">
+                {items.length} item{items.length !== 1 ? 's' : ''} added
+              </p>
+            </div>
+          ) : (
+            <button
+              onClick={() => { setData('extras', []); nextStep() }}
+              className="text-[12px] text-[#a8b0bd] hover:text-[#52647a] transition-colors"
+            >
+              Skip for now — add extras later →
+            </button>
+          )}
+        </ContinuePortal>
+      )}
     </>
   )
 }

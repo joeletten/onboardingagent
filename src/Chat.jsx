@@ -153,9 +153,10 @@ function ChatError({ text }) {
 function ChatInputBar({ onSend, isProcessing, currentStepId }) {
   const [value, setValue] = useState('')
   const inputRef = useRef(null)
+  const hasInteracted = useRef(false)
 
   useEffect(() => {
-    if (!isProcessing && inputRef.current) inputRef.current.focus()
+    if (hasInteracted.current && !isProcessing && inputRef.current) inputRef.current.focus()
   }, [isProcessing])
 
   const placeholders = {
@@ -177,12 +178,13 @@ function ChatInputBar({ onSend, isProcessing, currentStepId }) {
   const submit = () => {
     const text = value.trim()
     if (!text || isProcessing) return
+    hasInteracted.current = true
     onSend(text)
     setValue('')
   }
 
   return (
-    <div className="flex-shrink-0 px-6 pb-4 pt-2 bg-white border-t border-[#e6e9ef]">
+    <div className="flex-shrink-0 px-6 pb-4 pt-2">
       <div className="max-w-2xl mx-auto">
         <div className={`flex items-center gap-2 bg-[#f9fafb] border rounded-2xl px-4 py-2.5 transition-all ${
           isProcessing ? 'border-[#125fe3]/30' : 'border-[#e6e9ef] focus-within:border-[#125fe3] focus-within:ring-2 focus-within:ring-[#125fe3]/10'
@@ -219,7 +221,7 @@ function ChatInputBar({ onSend, isProcessing, currentStepId }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function Chat() {
-  const { steps, currentStep, isTyping, stepReady, setStepReady, data, setData, nextStep, setStep, resetId, highlightKeys } = useOnboarding()
+  const { steps, currentStep, isTyping, stepReady, setStepReady, data, setData, nextStep, setStep, resetId, highlightKeys, continuePortalRef } = useOnboarding()
   const scrollRef = useRef(null)
   const bottomRef = useRef(null)
 
@@ -353,22 +355,22 @@ export default function Chat() {
             })
           }
 
+          // Persist each item immediately so individual adds are never lost
+          const toolChangedKeys = []
+          Object.keys(workingData).forEach(key => {
+            if (JSON.stringify(workingData[key]) !== JSON.stringify(dataRef.current[key])) {
+              setData(key, workingData[key])
+              toolChangedKeys.push(key)
+            }
+          })
+          if (toolChangedKeys.length > 0) highlightKeys(toolChangedKeys)
+
           toolResults.push({
             type: 'tool_result',
             tool_use_id: tu.id,
             content: JSON.stringify(result),
           })
         }
-
-        // Commit mutations + highlight changed keys
-        const changedKeys = []
-        Object.keys(workingData).forEach(key => {
-          if (JSON.stringify(workingData[key]) !== JSON.stringify(dataRef.current[key])) {
-            setData(key, workingData[key])
-            changedKeys.push(key)
-          }
-        })
-        if (changedKeys.length > 0) highlightKeys(changedKeys)
 
         updatedMessages.push({ role: 'user', content: toolResults })
 
@@ -471,6 +473,9 @@ export default function Chat() {
           <AnimatePresence>
             {isThinking && <ChatThinking key="thinking" />}
           </AnimatePresence>
+
+          {/* Continue button portal target — step components render their continue buttons here */}
+          <div ref={continuePortalRef} />
 
           {/* Scroll anchor */}
           <div ref={bottomRef} className="h-1" />

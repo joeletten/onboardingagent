@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { KompasMessage, InteractiveArea, Button } from '../ui'
-import { useOnboarding } from '../OnboardingContext'
+import { useOnboarding, ContinuePortal } from '../OnboardingContext'
 import IconBrand from '../IconBrand'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -324,12 +324,6 @@ export default function Distribution() {
               <p className="text-[11px] text-[#a8b0bd] mt-1">
                 Go back and set up {plans.length === 0 ? 'rate plans' : 'rooms'} first, then configure distribution here.
               </p>
-              <button
-                onClick={handleContinue}
-                className="mt-4 text-[12px] text-[#a8b0bd] hover:text-[#52647a] transition-colors"
-              >
-                Skip for now →
-              </button>
             </div>
           ) : (
             <>
@@ -422,35 +416,51 @@ export default function Distribution() {
                 </motion.div>
               </AnimatePresence>
 
-              {/* Navigation */}
-              <div className="flex items-center gap-3 pt-1">
-                {!isLast ? (
-                  <>
-                    <Button onClick={() => setActiveChannelIdx(i => i + 1)}>
-                      Next: {channels[activeChannelIdx + 1]?.name} →
-                    </Button>
-                    <button
-                      onClick={handleContinue}
-                      className="text-[12px] text-[#a8b0bd] hover:text-[#52647a] transition-colors"
-                    >
-                      Save & finish all →
-                    </button>
-                  </>
-                ) : (
-                  <Button onClick={handleContinue}>Save distribution & continue</Button>
-                )}
-              </div>
-
-              {/* Channel progress summary */}
-              <p className="text-[11px] text-[#a8b0bd]">
-                Channel {activeChannelIdx + 1} of {channels.length}
-                {' · '}
-                {plans.filter(p => planAppliesToChannel(p, activeChannel.id, plans)).length} applicable rate plan{plans.length !== 1 ? 's' : ''}
-              </p>
             </>
           )}
         </div>
       </InteractiveArea>
+
+      {/* Navigation — portaled after chat messages */}
+      {!emptyState && (
+        <ContinuePortal>
+          <div>
+            <div className="flex items-center gap-3">
+              {!isLast ? (
+                <>
+                  <Button onClick={() => setActiveChannelIdx(i => i + 1)}>
+                    Next: {channels[activeChannelIdx + 1]?.name} →
+                  </Button>
+                  <button
+                    onClick={handleContinue}
+                    className="text-[12px] text-[#a8b0bd] hover:text-[#52647a] transition-colors"
+                  >
+                    Save & finish all →
+                  </button>
+                </>
+              ) : (
+                <Button onClick={handleContinue}>Save distribution & continue</Button>
+              )}
+            </div>
+            <p className="text-[11px] text-[#a8b0bd] mt-1">
+              Channel {activeChannelIdx + 1} of {channels.length}
+              {' · '}
+              {plans.filter(p => planAppliesToChannel(p, activeChannel.id, plans)).length} applicable rate plan{plans.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+        </ContinuePortal>
+      )}
+
+      {emptyState && (
+        <ContinuePortal>
+          <button
+            onClick={handleContinue}
+            className="text-[12px] text-[#a8b0bd] hover:text-[#52647a] transition-colors"
+          >
+            Skip for now →
+          </button>
+        </ContinuePortal>
+      )}
     </>
   )
 }

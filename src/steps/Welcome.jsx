@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { KompasMessage, InteractiveArea, PrimaryButton } from '../ui'
-import { useOnboarding, useAgentHighlight } from '../OnboardingContext'
+import { useOnboarding, useAgentHighlight, ContinuePortal } from '../OnboardingContext'
 
 export default function Welcome() {
   const { data, setData, nextStep } = useOnboarding()
@@ -45,11 +45,14 @@ export default function Welcome() {
               focus:outline-none focus:ring-2 focus:ring-kompas-indigo/30 focus:border-kompas-indigo
               placeholder:text-lh-text-muted transition-all ${nameHighlighted ? 'agent-highlight' : 'border-lh-border'}`}
           />
-          <PrimaryButton onClick={handleSubmit} disabled={!name.trim()}>
-            Continue
-          </PrimaryButton>
         </div>
       </InteractiveArea>
+
+      <ContinuePortal>
+        <PrimaryButton onClick={handleSubmit} disabled={!name.trim()}>
+          Continue
+        </PrimaryButton>
+      </ContinuePortal>
     </>
   )
 }
