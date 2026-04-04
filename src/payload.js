@@ -48,9 +48,6 @@ export function buildPayload(data, steps, currentStep) {
       name:          hotelDetails.name    || data.property?.name    || null,
       address:       hotelDetails.address || data.property?.address || null,
       country:       hotelDetails.country || data.property?.country || null,
-      star_rating:   data.property?.stars ?? null,
-      check_in_time:  hotelDetails.checkIn  || null,
-      check_out_time: hotelDetails.checkOut || null,
     },
 
     contact: {
@@ -137,7 +134,6 @@ export function buildPayload(data, steps, currentStep) {
     competitors: (data.competitors || []).map(c => ({
       id:          String(c.id),
       name:        c.name  || null,
-      star_rating: c.stars ?? null,
       distance_km: parseFloat(c.dist) || null,
     })),
   }
@@ -166,7 +162,6 @@ export function getMissingFields(payload) {
 
   // ── Recommended ───────────────────────────────────────────────────────────
   if (!payload.property.country)           rec('property.country',          'Property country')
-  if (!payload.property.star_rating)       rec('property.star_rating',      'Star rating')
   if (!payload.localization.timezone)      rec('localization.timezone',      'Timezone')
   if (!payload.localization.vat_rate)      rec('localization.vat_rate',      'Default VAT rate')
   if (!payload.contact.email)              rec('contact.email',              'Contact email')

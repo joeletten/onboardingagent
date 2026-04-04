@@ -146,7 +146,7 @@ function ChatThinking() {
   )
 }
 
-function ChatError({ text }) {
+function ChatError({ text, onRetry }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 4 }}
@@ -154,10 +154,18 @@ function ChatError({ text }) {
       className="flex items-start gap-2 mb-2 ml-[30px]"
     >
       <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-[12px] bg-[#fff0f0] text-[#b91c1c] border border-[#fecaca]">
-        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+        <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
           <path d="M12 9v4M12 17h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         <span>{text}</span>
+        {onRetry && (
+          <button
+            onClick={onRetry}
+            className="ml-1 px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-[#b91c1c] text-white hover:bg-[#991b1b] transition-colors flex-shrink-0"
+          >
+            Try again
+          </button>
+        )}
       </div>
     </motion.div>
   )
@@ -249,6 +257,7 @@ export default function Chat() {
 
   const msgIdRef = useRef(0)
   const nextMsgId = () => `msg-${++msgIdRef.current}`
+  const lastFailedText = useRef(null)
 
   const addChatMessage = useCallback((msg) => {
     setChatMessages(prev => [...prev, { ...msg, id: nextMsgId() }])
@@ -292,6 +301,12 @@ export default function Chat() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [])
 
+  // Update browser tab title per step
+  useEffect(() => {
+    const stepLabel = steps[currentStep]?.label || 'Onboarding'
+    document.title = `${stepLabel} — Lighthouse Onboarding`
+  }, [currentStep, steps])
+
   // Scroll on step change (always) and on new messages (if near bottom)
   useEffect(() => {
     const t = setTimeout(scrollToBottom, 120)
@@ -308,9 +323,29 @@ export default function Chat() {
   const CurrentStepComponent = STEP_COMPONENTS[currentStep]
   const currentStepDef = steps[currentStep]
 
+  // ── Retry helper ────────────────────────────────────────────────────────────
+
+  const callClaudeWithRetry = async (messages, wd, stepSnap, allSteps, maxRetries = 2) => {
+    let lastErr
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await callClaude(messages, wd, stepSnap, allSteps)
+      } catch (err) {
+        lastErr = err
+        const status = err?.status || err?.response?.status
+        const isTransient = status === 429 || status === 500 || status === 502 || status === 503 || err.message?.includes('fetch')
+        if (!isTransient || attempt === maxRetries) throw err
+        // Exponential backoff: 1s, 2s
+        await new Promise(r => setTimeout(r, 1000 * (attempt + 1)))
+      }
+    }
+    throw lastErr
+  }
+
   // ── Send handler ────────────────────────────────────────────────────────────
 
   const handleChatSend = async (text) => {
+    lastFailedText.current = text
     addChatMessage({ type: 'user', text })
     setChatProcessing(true)
     setIsThinking_chat(true)
@@ -333,7 +368,7 @@ export default function Chat() {
     const newMessages = [...baseHistory, { role: 'user', content: text }]
 
     try {
-      let response = await callClaude(newMessages, workingData, currentStepSnapshot, allSteps)
+      let response = await callClaudeWithRetry(newMessages, workingData, currentStepSnapshot, allSteps)
       let updatedMessages = [...newMessages, { role: 'assistant', content: response.content }]
 
       let shouldAdvance = false
@@ -390,7 +425,7 @@ export default function Chat() {
         updatedMessages.push({ role: 'user', content: toolResults })
 
         setIsThinking_chat(true)
-        response = await callClaude(updatedMessages, workingData, currentStepSnapshot, allSteps)
+        response = await callClaudeWithRetry(updatedMessages, workingData, currentStepSnapshot, allSteps)
         updatedMessages.push({ role: 'assistant', content: response.content })
       }
 
@@ -417,12 +452,19 @@ export default function Chat() {
         setTimeout(() => nextStep(), 1400)
       }
 
+      lastFailedText.current = null // success — clear retry state
+
     } catch (err) {
       setIsThinking_chat(false)
-      const errText = err.message?.includes('ANTHROPIC_API_KEY')
+      const isApiKey = err.message?.includes('ANTHROPIC_API_KEY')
+      const errText = isApiKey
         ? 'API key not configured — add ANTHROPIC_API_KEY to .env.local'
         : `Something went wrong: ${err.message}`
-      addChatMessage({ type: 'error', text: errText })
+      addChatMessage({
+        type: 'error',
+        text: errText,
+        retryable: !isApiKey && !!lastFailedText.current,
+      })
     } finally {
       setChatProcessing(false)
       setIsThinking_chat(false)
@@ -449,8 +491,8 @@ export default function Chat() {
               </svg>
             </button>
             <button
-              onClick={() => currentStep <= maxStep && setStep(currentStep + 1)}
-              disabled={currentStep > maxStep}
+              onClick={() => currentStep < maxStep && setStep(currentStep + 1)}
+              disabled={currentStep >= maxStep}
               className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors disabled:opacity-25 disabled:cursor-not-allowed text-[#52647a] hover:bg-[#f2f4f8] hover:text-[#1f2124]"
               aria-label="Next step"
             >
@@ -470,16 +512,6 @@ export default function Chat() {
             </p>
           </div>
         </div>
-        <button
-          className="text-[12px] font-medium text-lh-text-secondary hover:text-lh-text-primary transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-lh-border-light"
-          onClick={() => alert('In the full version, this would connect you with a Lighthouse onboarding specialist.')}
-        >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
-            <circle cx="12" cy="7" r="4" />
-          </svg>
-          Need a human?
-        </button>
       </header>
 
       {/* Single unified scrollable area */}
@@ -495,15 +527,27 @@ export default function Chat() {
             )}
           </AnimatePresence>
 
-          {/* Latest chat message only — history is visible in the sidebar */}
+          {/* Current turn messages — everything since the last user message */}
           {chatMessages.length > 0 && (() => {
-            const last = chatMessages[chatMessages.length - 1]
+            const lastUserIdx = chatMessages.map(m => m.type).lastIndexOf('user')
+            const turnMessages = lastUserIdx >= 0 ? chatMessages.slice(lastUserIdx) : chatMessages
             return (
-              <div className="mt-4">
-                {last.type === 'user' && <ChatUserBubble key={last.id} text={last.text} />}
-                {last.type === 'agent-text' && <ChatAgentBubble key={last.id} text={last.text} />}
-                {last.type === 'agent-action' && <ChatActionCard key={last.id} label={last.label} toolName={last.toolName} success={last.success} />}
-                {last.type === 'error' && <ChatError key={last.id} text={last.text} />}
+              <div className="mt-4 space-y-2">
+                {turnMessages.map(msg => (
+                  <div key={msg.id}>
+                    {msg.type === 'user' && <ChatUserBubble text={msg.text} />}
+                    {msg.type === 'agent-text' && <ChatAgentBubble text={msg.text} />}
+                    {msg.type === 'agent-action' && <ChatActionCard label={msg.label} toolName={msg.toolName} success={msg.success} />}
+                    {msg.type === 'error' && <ChatError text={msg.text} onRetry={msg.retryable ? () => {
+                      const retryText = lastFailedText.current
+                      if (!retryText) return
+                      // Remove the entire failed turn and resend
+                      const lastUserIdx = chatMessages.map(m => m.type).lastIndexOf('user')
+                      setChatMessages(prev => prev.slice(0, lastUserIdx >= 0 ? lastUserIdx : prev.length))
+                      handleChatSend(retryText)
+                    } : undefined} />}
+                  </div>
+                ))}
               </div>
             )
           })()}

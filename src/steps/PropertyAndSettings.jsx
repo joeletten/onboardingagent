@@ -46,19 +46,23 @@ export default function PropertyAndSettings() {
   const [showResults, setShowResults] = useState(false)
   const [results, setResults] = useState([])
   const [searching, setSearching] = useState(false)
+  const [searchError, setSearchError] = useState(false)
   const debounceRef = useRef(null)
 
   useEffect(() => {
-    if (query.length < 2) { setResults([]); return }
+    if (query.length < 2) { setResults([]); setSearchError(false); return }
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(async () => {
       setSearching(true)
+      setSearchError(false)
       try {
         const res = await fetch(`/api/places?q=${encodeURIComponent(query)}`)
+        if (!res.ok) throw new Error('Search failed')
         const data = await res.json()
         setResults(Array.isArray(data) ? data : [])
       } catch {
         setResults([])
+        setSearchError(true)
       } finally {
         setSearching(false)
       }
@@ -261,14 +265,18 @@ export default function PropertyAndSettings() {
                       className="w-full text-left px-4 py-3 hover:bg-[#f9fafb] transition-colors border-b border-[#e6e9ef] last:border-0"
                     >
                       <p className="text-[13px] font-semibold text-[#1f2124]">{h.name}</p>
-                      <p className="text-[12px] text-[#a8b0bd]">{h.city}{h.city && h.country ? ', ' : ''}{h.country}{h.rating ? ` · ★ ${h.rating}` : ''}</p>
+                      <p className="text-[12px] text-[#a8b0bd]">{h.city}{h.city && h.country ? ', ' : ''}{h.country}</p>
                     </button>
                   ))}
                 </div>
               )}
               {showResults && !searching && query.length >= 2 && results.length === 0 && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-[#e6e9ef] rounded-lg shadow-md z-20 p-4">
-                  <p className="text-[13px] text-[#a8b0bd]">No results found. Try a different name or enter details manually.</p>
+                  {searchError ? (
+                    <p className="text-[13px] text-[#b91c1c]">Search failed — please check your connection and try again.</p>
+                  ) : (
+                    <p className="text-[13px] text-[#a8b0bd]">No results found. Try a different name or enter details manually.</p>
+                  )}
                 </div>
               )}
             </div>

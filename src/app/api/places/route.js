@@ -38,8 +38,6 @@ export async function GET(request) {
         address: address.replace(`, ${country}`, '').trim(),
         city,
         country,
-        stars:   place.price_level ? Math.min(place.price_level + 2, 5) : null,
-        rating:  place.rating || null,
         placeId: place.place_id,
       }
     })
