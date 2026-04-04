@@ -2,16 +2,13 @@
 
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { KompasMessage, InteractiveArea, Button, Input, Toggle } from '../ui'
+import { KompasMessage, InteractiveArea, Button, Input } from '../ui'
 import { useOnboarding, useAgentHighlight, ContinuePortal } from '../OnboardingContext'
+import { validateMinLength, validateNumberRange } from '../validation'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const CURRENCY_SYMBOLS = { EUR: '€', GBP: '£', CHF: 'Fr.', USD: '$', SEK: 'kr', NOK: 'kr', DKK: 'kr', PLN: 'zł', CZK: 'Kč' }
-
-function getCurrSymbol(currency) {
-  return CURRENCY_SYMBOLS[currency] || '€'
-}
+import { getCurrSymbol } from '../currency'
 
 function computeExamplePrice(baseExamplePrice, room) {
   if (room.isBase) return baseExamplePrice
@@ -31,12 +28,12 @@ function sortRoomsByPrice(rooms) {
   return [...rooms].sort((a, b) => roomPrice(a) - roomPrice(b))
 }
 
-function formatOffset(room) {
+function formatOffset(room, currSymbol = '€') {
   if (room.isBase) return null
   const dir = room.offsetDirection === '-' ? '−' : '+'
   const val = parseFloat(room.offsetValue) || 0
   if (room.offsetType === 'percentage') return `${dir}${val}%`
-  return `${dir}€${val}`
+  return `${dir}${currSymbol}${val}`
 }
 
 function emptyRoom(isBase = false) {
@@ -78,36 +75,45 @@ const numInputCls = `
 
 function RoomForm({ form, onChange, onSave, onCancel, isFirstRoom, baseRefPrice, currSymbol, hasOta, otaLabel }) {
   const isBase = isFirstRoom || form.isBase
+  const [touched, setTouched] = useState({})
 
   const examplePrice = isBase ? 100 : computeExamplePrice(100, form)
 
-  const canSave = form.name.trim() && parseInt(form.count) >= 1
+  const nameErr = touched.name ? (validateMinLength(form.name, 2, 'Room name') || (!form.name.trim() ? 'Room name is required' : null)) : null
+  const countErr = touched.count ? (
+    !form.count ? 'Count is required' : validateNumberRange(form.count, 1, 999, 'Count')
+  ) : null
+  const guestErr = touched.guests && form.minGuests > form.maxGuests ? 'Min guests cannot exceed max guests' :
+                   touched.guests && form.defaultGuests > form.maxGuests ? 'Default guests cannot exceed max guests' :
+                   touched.guests && form.defaultGuests < form.minGuests ? 'Default guests cannot be less than min guests' : null
+
+  const canSave = form.name.trim() && parseInt(form.count) >= 1 && !nameErr && !countErr && form.minGuests <= form.defaultGuests && form.defaultGuests <= form.maxGuests
 
   return (
     <div className="border-t border-[#e6e9ef] pt-3 mt-1 space-y-3">
 
       {/* Row 1: Name + Count side by side */}
-      <div className="flex items-end gap-3">
-        <div className="flex-1">
-          <Input
-            label="Room name"
-            placeholder="e.g. Deluxe King"
-            value={form.name}
-            onChange={e => onChange('name', e.target.value)}
-            size="sm"
-            autoFocus
-          />
-        </div>
-        <div className="w-20">
-          <Input
-            label="Count"
-            type="number"
-            placeholder="4"
-            value={form.count}
-            onChange={e => onChange('count', e.target.value)}
-            size="sm"
-          />
-        </div>
+      <div className="grid grid-cols-[1fr_5rem] gap-3">
+        <Input
+          label="Room name"
+          placeholder="e.g. Deluxe King"
+          value={form.name}
+          onChange={e => { onChange('name', e.target.value); if (touched.name) setTouched(t => ({ ...t, name: true })) }}
+          onBlur={() => setTouched(t => ({ ...t, name: true }))}
+          error={nameErr}
+          size="sm"
+          autoFocus
+        />
+        <Input
+          label="Count"
+          type="number"
+          placeholder="4"
+          value={form.count}
+          onChange={e => { onChange('count', e.target.value); if (touched.count) setTouched(t => ({ ...t, count: true })) }}
+          onBlur={() => setTouched(t => ({ ...t, count: true }))}
+          error={countErr}
+          size="sm"
+        />
       </div>
 
       {/* Row 2: Pricing */}
@@ -179,37 +185,99 @@ function RoomForm({ form, onChange, onSave, onCancel, isFirstRoom, baseRefPrice,
         </div>
       )}
 
-      {/* Row 3: Guests (all on one line) + Online toggle */}
-      <div className="flex items-end gap-4 flex-wrap">
-        <div className="flex items-center gap-2">
-          {[
-            { label: 'Guests', field: 'defaultGuests', max: 20 },
-            { label: 'Min', field: 'minGuests', max: 20 },
-            { label: 'Max', field: 'maxGuests', max: 20 },
-            { label: 'Children', field: 'maxKids', max: 10 },
-            { label: 'Babies', field: 'maxBabies', max: 10 },
-          ].map(({ label, field, max }) => (
-            <div key={field} className="flex flex-col items-center gap-0.5">
-              <label className="text-[9px] font-bold text-[#a8b0bd] uppercase tracking-wide">{label}</label>
+      {/* Row 3: Occupancy */}
+      <div className="rounded-lg border border-[#e6e9ef] bg-[#f9fafb] p-3 space-y-3">
+        <p className="text-[10px] font-bold text-[#a8b0bd] uppercase tracking-widest">Occupancy</p>
+
+        {/* Adults */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <svg className="w-3.5 h-3.5 text-[#52647a] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="12" cy="7" r="4" />
+            </svg>
+            <span className="text-[12px] font-semibold text-[#1f2124]">Adults</span>
+          </div>
+          <div className="flex items-center gap-3 ml-5.5">
+            {[
+              { label: 'Standard', field: 'defaultGuests', hint: 'Default number of adults' },
+              { label: 'Min', field: 'minGuests', hint: 'Minimum to book' },
+              { label: 'Max', field: 'maxGuests', hint: 'Maximum capacity' },
+            ].map(({ label, field }) => (
+              <div key={field} className="flex items-center gap-1.5">
+                <label className="text-[11px] text-[#52647a]">{label}</label>
+                <input
+                  type="number"
+                  className={`px-1.5 py-1 rounded border bg-white text-[13px] text-center text-[#1f2124]
+                    hover:border-[#dbe0e6] focus:border-[#125fe3] focus:ring-2 focus:ring-[#125fe3]/20
+                    outline-none transition-all w-11 ${
+                      guestErr ? 'border-[#d93025]' : 'border-[#e6e9ef]'
+                    }`}
+                  min={field === 'minGuests' ? 1 : 1}
+                  max={20}
+                  value={form[field]}
+                  onChange={e => { onChange(field, parseInt(e.target.value) || 0); setTouched(t => ({ ...t, guests: true })) }}
+                />
+              </div>
+            ))}
+          </div>
+          {guestErr && (
+            <p className="flex items-center gap-1 text-[11px] text-[#d93025] leading-4 ml-5.5">
+              <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 16 16" fill="currentColor">
+                <path fillRule="evenodd" d="M8 15A7 7 0 108 1a7 7 0 000 14zM7.25 5a.75.75 0 011.5 0v3a.75.75 0 01-1.5 0V5zM8 10.5a.75.75 0 100 1.5.75.75 0 000-1.5z" clipRule="evenodd" />
+              </svg>
+              {guestErr}
+            </p>
+          )}
+        </div>
+
+        {/* Children & Babies — extra capacity on top of adults */}
+        <div className="border-t border-[#e6e9ef] pt-2.5 space-y-2">
+          <p className="text-[11px] text-[#a8b0bd]">Extra guests allowed <strong className="text-[#52647a]">in addition</strong> to adults</p>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5 text-[#52647a] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path d="M12 2a4 4 0 014 4 4 4 0 01-4 4 4 4 0 01-4-4 4 4 0 014-4z" /><path d="M16 21v-1a3 3 0 00-3-3h-2a3 3 0 00-3 3v1" />
+              </svg>
+              <label className="text-[11px] text-[#52647a]">Children</label>
               <input
                 type="number"
-                className="px-1.5 py-1.5 rounded border border-[#e6e9ef] bg-white text-[13px] text-center text-[#1f2124]
+                className="px-1.5 py-1 rounded border border-[#e6e9ef] bg-white text-[13px] text-center text-[#1f2124]
                   hover:border-[#dbe0e6] focus:border-[#125fe3] focus:ring-2 focus:ring-[#125fe3]/20
-                  outline-none transition-all w-12"
+                  outline-none transition-all w-11"
                 min={0}
-                max={max}
-                value={form[field]}
-                onChange={e => onChange(field, parseInt(e.target.value) || 0)}
+                max={10}
+                value={form.maxKids}
+                onChange={e => onChange('maxKids', parseInt(e.target.value) || 0)}
               />
             </div>
-          ))}
+            <div className="flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5 text-[#52647a] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <circle cx="12" cy="8" r="4" /><path d="M14 20H10" />
+              </svg>
+              <label className="text-[11px] text-[#52647a]">Infants</label>
+              <input
+                type="number"
+                className="px-1.5 py-1 rounded border border-[#e6e9ef] bg-white text-[13px] text-center text-[#1f2124]
+                  hover:border-[#dbe0e6] focus:border-[#125fe3] focus:ring-2 focus:ring-[#125fe3]/20
+                  outline-none transition-all w-11"
+                min={0}
+                max={10}
+                value={form.maxBabies}
+                onChange={e => onChange('maxBabies', parseInt(e.target.value) || 0)}
+              />
+            </div>
+          </div>
         </div>
-        <Toggle
-          checked={form.bookableOnline}
-          onChange={val => onChange('bookableOnline', val)}
-          label="Online"
-          size="sm"
-        />
+
+        {/* Summary line */}
+        <div className="border-t border-[#e6e9ef] pt-2 flex items-center justify-between">
+          <span className="text-[11px] text-[#a8b0bd]">Total max capacity</span>
+          <span className="text-[12px] font-semibold text-[#1f2124]">
+            {form.maxGuests} adult{form.maxGuests !== 1 ? 's' : ''}
+            {form.maxKids > 0 && <span className="text-[#a8b0bd] font-normal"> + {form.maxKids} child{form.maxKids !== 1 ? 'ren' : ''}</span>}
+            {form.maxBabies > 0 && <span className="text-[#a8b0bd] font-normal"> + {form.maxBabies} infant{form.maxBabies !== 1 ? 's' : ''}</span>}
+          </span>
+        </div>
       </div>
 
       <div className="flex items-center gap-2">
@@ -224,7 +292,7 @@ function RoomForm({ form, onChange, onSave, onCancel, isFirstRoom, baseRefPrice,
 
 function RoomListCard({ room, index, isEditing, currSymbol, baseRefPrice, hasOta, otaLabel, onEdit, onDelete, onSave, onCancel, editForm, onFormChange, isHighlighted }) {
   const examplePrice = computeExamplePrice(100, room)
-  const offsetLabel = formatOffset(room)
+  const offsetLabel = formatOffset(room, currSymbol)
 
   return (
     <motion.div
@@ -278,15 +346,9 @@ function RoomListCard({ room, index, isEditing, currSymbol, baseRefPrice, hasOta
             )}
           </div>
           <div className="flex items-center gap-2.5 mt-0.5 text-[12px] text-[#a8b0bd] flex-wrap">
-            <span>{room.defaultGuests} guests default (max {room.maxGuests})</span>
-            {room.maxKids > 0 && <span>· {room.maxKids} child</span>}
-            {room.maxBabies > 0 && <span>· {room.maxBabies} baby</span>}
-            {room.bookableOnline !== false && (
-              <>
-                <span className="text-[#e6e9ef]">·</span>
-                <span className="text-green-600">✓ Online</span>
-              </>
-            )}
+            <span>{room.minGuests}–{room.maxGuests} adults (std. {room.defaultGuests})</span>
+            {room.maxKids > 0 && <span>· +{room.maxKids} child{room.maxKids !== 1 ? 'ren' : ''}</span>}
+            {room.maxBabies > 0 && <span>· +{room.maxBabies} infant{room.maxBabies !== 1 ? 's' : ''}</span>}
           </div>
         </div>
 
@@ -302,9 +364,10 @@ function RoomListCard({ room, index, isEditing, currSymbol, baseRefPrice, hasOta
           <button
             onClick={onDelete}
             className="p-1.5 rounded text-[#a8b0bd] hover:text-red-500 hover:bg-red-50 transition-colors"
+            title="Delete"
           >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path d="M18 6L6 18M6 6l12 12" />
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14M10 11v6M14 11v6" />
             </svg>
           </button>
         </div>

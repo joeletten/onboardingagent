@@ -150,7 +150,7 @@ function ChannelMatrix({ channel, plans, rooms, matrix, onChange, onBatchChange 
           <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0110 0v4" />
         </svg>
         <p className="text-[13px] font-medium text-[#52647a]">No rate plans available for this channel</p>
-        <p className="text-[11px] text-[#a8b0bd] mt-1">All your rate plans are set to "Direct only".</p>
+        <p className="text-[11px] text-[#a8b0bd] mt-1">All your rate plans are exclusive to your own booking website and won't appear on OTAs.</p>
       </div>
     )
   }
@@ -250,7 +250,7 @@ function ChannelMatrix({ channel, plans, rooms, matrix, onChange, onBatchChange 
             <tr className="border-t border-[#f2f4f8] opacity-40">
               <td className="py-3 pr-4" colSpan={rooms.length + 1}>
                 <p className="text-[12px] text-[#a8b0bd] italic">
-                  {directOnlyPlans.map(p => p.name).join(', ')} — Direct only (not published here)
+                  {directOnlyPlans.map(p => p.name).join(', ')} — exclusive to your website (not published to this OTA)
                 </p>
               </td>
             </tr>

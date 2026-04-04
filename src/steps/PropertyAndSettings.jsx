@@ -1,8 +1,9 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { KompasMessage, InteractiveArea, PropertyCard, Button, Input, Select, Card } from '../ui'
 import { useOnboarding, ContinuePortal } from '../OnboardingContext'
+import { validateRequired, validateEmail, validatePhone, validateWebsite, validateVatRate, validateContactName } from '../validation'
 
 const COUNTRY_DEFAULTS = {
   Netherlands:      { timezone: 'Europe/Amsterdam', currency: 'EUR', vatRate: '9' },
@@ -111,6 +112,46 @@ export default function PropertyAndSettings() {
 
   const localizationFromCountry = !data.settings?.localization
 
+  // ── Validation state ────────────────────────────────────────────────────
+  const [errors, setErrors] = useState({})
+  const [touched, setTouched] = useState({})
+
+  const touch = useCallback((field) => setTouched(t => ({ ...t, [field]: true })), [])
+
+  const validate = useCallback((field, value) => {
+    const validators = {
+      name:        (v) => validateRequired(v, 'Hotel name'),
+      address:     (v) => validateRequired(v, 'Address'),
+      country:     (v) => validateRequired(v, 'Country'),
+      contactName: (v) => validateContactName(v),
+      phone:       (v) => validatePhone(v),
+      email:       (v) => validateEmail(v),
+      website:     (v) => validateWebsite(v),
+      vatRate:     (v) => validateVatRate(v),
+    }
+    const err = validators[field]?.(value) || null
+    setErrors(e => ({ ...e, [field]: err }))
+    return err
+  }, [])
+
+  const getError = (field) => touched[field] ? errors[field] : null
+
+  const validateAll = () => {
+    const fields = {
+      name: hotelDetails.name, address: hotelDetails.address, country: hotelDetails.country,
+      contactName: contact.contactName, email: contact.email, phone: contact.phone,
+      website: contact.website, vatRate: localization.vatRate,
+    }
+    let hasError = false
+    const newTouched = {}
+    for (const [field, value] of Object.entries(fields)) {
+      newTouched[field] = true
+      if (validate(field, value)) hasError = true
+    }
+    setTouched(t => ({ ...t, ...newTouched }))
+    return !hasError
+  }
+
   // When chat sets property info directly, switch from search phase to settings
   useEffect(() => {
     const chatSetProperty = data.property?.name || data.settings?.hotelDetails?.name
@@ -160,13 +201,19 @@ export default function PropertyAndSettings() {
     data.settings?.localization?.vatRate,
   ])
 
-  const tabComplete = {
-    hotel: !!(hotelDetails.name && hotelDetails.address && hotelDetails.country),
-    contact: !!(contact.contactName && contact.email),
-    localization: !!(localization.timezone && localization.currency),
+  const tabValid = {
+    hotel: !!(hotelDetails.name && hotelDetails.address && hotelDetails.country)
+      && !validateRequired(hotelDetails.name, 'x') && !validateRequired(hotelDetails.address, 'x') && !validateRequired(hotelDetails.country, 'x'),
+    contact: !!(contact.contactName && contact.email)
+      && !validateContactName(contact.contactName) && !validateEmail(contact.email)
+      && !validatePhone(contact.phone) && !validateWebsite(contact.website),
+    localization: !!(localization.timezone && localization.currency)
+      && !validateVatRate(localization.vatRate),
   }
+  const tabComplete = tabValid
 
   const handleSave = () => {
+    if (!validateAll()) return
     setData('settings', { hotelDetails, contact, localization })
     setTimeout(() => nextStep(), 300)
   }
@@ -290,7 +337,9 @@ export default function PropertyAndSettings() {
                         prefilled={!!property?.name}
                         size="sm"
                         value={hotelDetails.name}
-                        onChange={e => setHotelDetails(h => ({ ...h, name: e.target.value }))}
+                        onChange={e => { setHotelDetails(h => ({ ...h, name: e.target.value })); if (touched.name) validate('name', e.target.value) }}
+                        onBlur={() => { touch('name'); validate('name', hotelDetails.name) }}
+                        error={getError('name')}
                         placeholder="e.g. Maison Proust"
                       />
                       <Input
@@ -298,7 +347,9 @@ export default function PropertyAndSettings() {
                         prefilled={!!property?.address}
                         size="sm"
                         value={hotelDetails.address}
-                        onChange={e => setHotelDetails(h => ({ ...h, address: e.target.value }))}
+                        onChange={e => { setHotelDetails(h => ({ ...h, address: e.target.value })); if (touched.address) validate('address', e.target.value) }}
+                        onBlur={() => { touch('address'); validate('address', hotelDetails.address) }}
+                        error={getError('address')}
                         placeholder="e.g. 7 Rue Marcel Proust, Paris"
                       />
                       <Input
@@ -306,7 +357,9 @@ export default function PropertyAndSettings() {
                         prefilled={!!property?.country}
                         size="sm"
                         value={hotelDetails.country}
-                        onChange={e => setHotelDetails(h => ({ ...h, country: e.target.value }))}
+                        onChange={e => { setHotelDetails(h => ({ ...h, country: e.target.value })); if (touched.country) validate('country', e.target.value) }}
+                        onBlur={() => { touch('country'); validate('country', hotelDetails.country) }}
+                        error={getError('country')}
                         placeholder="e.g. France"
                       />
                     </>
@@ -318,14 +371,18 @@ export default function PropertyAndSettings() {
                         label="Contact Name"
                         size="sm"
                         value={contact.contactName}
-                        onChange={e => setContact(c => ({ ...c, contactName: e.target.value }))}
+                        onChange={e => { setContact(c => ({ ...c, contactName: e.target.value })); if (touched.contactName) validate('contactName', e.target.value) }}
+                        onBlur={() => { touch('contactName'); validate('contactName', contact.contactName) }}
+                        error={getError('contactName')}
                         placeholder="e.g. Sophie Laurent"
                       />
                       <Input
                         label="Phone Number"
                         size="sm"
                         value={contact.phone}
-                        onChange={e => setContact(c => ({ ...c, phone: e.target.value }))}
+                        onChange={e => { setContact(c => ({ ...c, phone: e.target.value })); if (touched.phone) validate('phone', e.target.value) }}
+                        onBlur={() => { touch('phone'); validate('phone', contact.phone) }}
+                        error={getError('phone')}
                         placeholder="e.g. +33 1 23 45 67 89"
                       />
                       <Input
@@ -333,14 +390,18 @@ export default function PropertyAndSettings() {
                         type="email"
                         size="sm"
                         value={contact.email}
-                        onChange={e => setContact(c => ({ ...c, email: e.target.value }))}
+                        onChange={e => { setContact(c => ({ ...c, email: e.target.value })); if (touched.email) validate('email', e.target.value) }}
+                        onBlur={() => { touch('email'); validate('email', contact.email) }}
+                        error={getError('email')}
                         placeholder="e.g. info@hotel.com"
                       />
                       <Input
                         label="Website"
                         size="sm"
                         value={contact.website}
-                        onChange={e => setContact(c => ({ ...c, website: e.target.value }))}
+                        onChange={e => { setContact(c => ({ ...c, website: e.target.value })); if (touched.website) validate('website', e.target.value) }}
+                        onBlur={() => { touch('website'); validate('website', contact.website) }}
+                        error={getError('website')}
                         placeholder="e.g. www.hotel.com"
                       />
                     </>
@@ -373,10 +434,12 @@ export default function PropertyAndSettings() {
                           prefilled={localizationFromCountry}
                           size="sm"
                           value={localization.vatRate}
-                          onChange={e => setLocalization(l => ({ ...l, vatRate: e.target.value }))}
+                          onChange={e => { setLocalization(l => ({ ...l, vatRate: e.target.value })); if (touched.vatRate) validate('vatRate', e.target.value) }}
+                          onBlur={() => { touch('vatRate'); validate('vatRate', localization.vatRate) }}
+                          error={getError('vatRate')}
                           placeholder="e.g. 10"
                         />
-                        <p className="text-[11px] text-[#a8b0bd] mt-1">Percentage (%)</p>
+                        {!getError('vatRate') && <p className="text-[11px] text-[#a8b0bd] mt-1">Percentage (%)</p>}
                       </div>
                     </>
                   )}
@@ -401,8 +464,29 @@ export default function PropertyAndSettings() {
           <ContinuePortal>
             {activeTab !== 'localization' ? (
               <button
-                onClick={() => setActiveTab(TABS[TABS.findIndex(t => t.id === activeTab) + 1].id)}
-                className="text-[13px] font-semibold text-[#125fe3] hover:text-[#0e4fc4] transition-colors flex items-center gap-1"
+                onClick={() => {
+                  // Validate current tab fields before advancing
+                  const tabFields = {
+                    hotel: { name: hotelDetails.name, address: hotelDetails.address, country: hotelDetails.country },
+                    contact: { contactName: contact.contactName, email: contact.email, phone: contact.phone, website: contact.website },
+                  }
+                  const fields = tabFields[activeTab] || {}
+                  let hasErr = false
+                  const newTouched = {}
+                  for (const [field, value] of Object.entries(fields)) {
+                    newTouched[field] = true
+                    if (validate(field, value)) hasErr = true
+                  }
+                  setTouched(t => ({ ...t, ...newTouched }))
+                  if (hasErr) return
+                  setActiveTab(TABS[TABS.findIndex(t => t.id === activeTab) + 1].id)
+                }}
+                disabled={!tabValid[activeTab]}
+                className={`text-[13px] font-semibold transition-colors flex items-center gap-1 ${
+                  tabValid[activeTab]
+                    ? 'text-[#125fe3] hover:text-[#0e4fc4]'
+                    : 'text-[#a8b0bd] cursor-not-allowed'
+                }`}
               >
                 Next
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -412,7 +496,7 @@ export default function PropertyAndSettings() {
             ) : (
               <Button
                 onClick={handleSave}
-                disabled={!hotelDetails.name || !contact.email || !localization.timezone}
+                disabled={!tabValid.hotel || !tabValid.contact || !tabValid.localization}
               >
                 Save & Continue
               </Button>

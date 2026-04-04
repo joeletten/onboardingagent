@@ -4,12 +4,11 @@ import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { KompasMessage, InteractiveArea, Button } from '../ui'
 import { useOnboarding, ContinuePortal } from '../OnboardingContext'
+import { validateMinLength, validateNumberRange } from '../validation'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const CURRENCY_SYMBOLS = { EUR: '€', GBP: '£', CHF: 'Fr.', USD: '$', SEK: 'kr', NOK: 'kr', DKK: 'kr', PLN: 'zł', CZK: 'Kč' }
-
-function getCurrSymbol(c) { return CURRENCY_SYMBOLS[c] || '€' }
+import { getCurrSymbol } from '../currency'
 
 const WIZARD_STEPS = ['Basics', 'Pricing', 'Distribution', 'Rooms', 'Extras']
 
@@ -55,19 +54,28 @@ const optBtn = (active) =>
 
 // ── Wizard step components ─────────────────────────────────────────────────────
 
-function StepBasics({ form, onChange, existingRoots }) {
+function StepBasics({ form, onChange, existingRoots, errors }) {
   const hasRoots = existingRoots.length > 0
+  const nameErr = errors?.name
   return (
     <div className="space-y-4">
       <div>
         <label className={labelCls}>Rate plan name</label>
         <input
-          className={inputCls}
+          className={`${inputCls} ${nameErr ? '!border-[#d93025] focus:!ring-[#d93025]/20 focus:!border-[#d93025]' : ''}`}
           placeholder="e.g. Flexible Rate, Non-refundable, Breakfast Included"
           value={form.name}
           onChange={e => onChange('name', e.target.value)}
           autoFocus
         />
+        {nameErr && (
+          <p className="flex items-center gap-1 text-[12px] text-[#d93025] mt-1 leading-4">
+            <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 16 16" fill="currentColor">
+              <path fillRule="evenodd" d="M8 15A7 7 0 108 1a7 7 0 000 14zM7.25 5a.75.75 0 011.5 0v3a.75.75 0 01-1.5 0V5zM8 10.5a.75.75 0 100 1.5.75.75 0 000-1.5z" clipRule="evenodd" />
+            </svg>
+            {nameErr}
+          </p>
+        )}
       </div>
 
       <div>
@@ -150,9 +158,11 @@ function StepBasics({ form, onChange, existingRoots }) {
   )
 }
 
-function StepPricing({ form, onChange, currSymbol, parentPlan }) {
+function StepPricing({ form, onChange, currSymbol, parentPlan, errors }) {
   const isRoot = form.type === 'root'
   const derivedFloor = !isRoot ? computeDerivedFloor(parentPlan, form) : null
+  const floorErr = errors?.floorPrice
+  const offsetErr = errors?.offsetValue
 
   return (
     <div className="space-y-4">
@@ -167,13 +177,21 @@ function StepPricing({ form, onChange, currSymbol, parentPlan }) {
             <input
               type="number"
               min={0}
-              className={`${inputCls} pl-7`}
+              className={`${inputCls} pl-7 ${floorErr ? '!border-[#d93025] focus:!ring-[#d93025]/20 focus:!border-[#d93025]' : ''}`}
               placeholder="e.g. 80"
               value={form.floorPrice}
               onChange={e => onChange('floorPrice', e.target.value)}
               autoFocus
             />
           </div>
+          {floorErr && (
+            <p className="flex items-center gap-1 text-[12px] text-[#d93025] mt-1 leading-4">
+              <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 16 16" fill="currentColor">
+                <path fillRule="evenodd" d="M8 15A7 7 0 108 1a7 7 0 000 14zM7.25 5a.75.75 0 011.5 0v3a.75.75 0 01-1.5 0V5zM8 10.5a.75.75 0 100 1.5.75.75 0 000-1.5z" clipRule="evenodd" />
+              </svg>
+              {floorErr}
+            </p>
+          )}
         </div>
       ) : (
         <div className="space-y-4">
@@ -265,8 +283,8 @@ function StepDistribution({ form, onChange }) {
             </p>
             <div className="flex gap-2">
               {[
-                ['all', 'All channels', 'Available on OTAs and direct booking'],
-                ['direct', 'Direct only', 'Exclusively for your direct booking channel'],
+                ['all', 'All channels', 'Available on OTAs (Booking.com, Expedia, Airbnb, etc.) and your direct booking website'],
+                ['direct', 'Direct only', 'Exclusively on your own website — not published to OTAs'],
               ].map(([val, title, desc]) => (
                 <button
                   key={val}
@@ -290,7 +308,7 @@ function StepDistribution({ form, onChange }) {
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0110 0v4" />
             </svg>
             <p className="text-[12px] text-[#52647a]">
-              Channel availability is <strong>inherited from the root rate</strong>. Derived plans cannot override this.
+              Channel availability is <strong>inherited from the root rate</strong>. Whether this plan appears on OTAs (Booking.com, Expedia, etc.) or only on your direct booking website is controlled by the root rate.
             </p>
           </div>
         )}
@@ -367,7 +385,7 @@ function StepRooms({ form, onChange, rooms }) {
   )
 }
 
-function StepExtras({ form, onChange, extras }) {
+function StepExtras({ form, onChange, extras, currSymbol }) {
   const toggleExtra = (id) => {
     const ids = form.extraIds.includes(id)
       ? form.extraIds.filter(e => e !== id)
@@ -417,7 +435,7 @@ function StepExtras({ form, onChange, extras }) {
                   <div className="flex-1 min-w-0">
                     <p className={`text-[13px] font-medium ${selected ? 'text-[#125fe3]' : 'text-[#1f2124]'}`}>{extra.name}</p>
                     <p className="text-[11px] text-[#a8b0bd]">
-                      {extra.itemType === 'discount' ? `−${extra.percentage}%` : `€${extra.price}`}
+                      {extra.itemType === 'discount' ? `−${extra.percentage}%` : `${currSymbol}${extra.price}`}
                     </p>
                   </div>
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide flex-shrink-0 ${typeColors[extra.itemType] || typeColors.extra}`}>
@@ -438,28 +456,49 @@ function StepExtras({ form, onChange, extras }) {
 function RatePlanWizard({ existingPlans, rooms, extras, currSymbol, onSave, onCancel }) {
   const [step, setStep] = useState(0) // 0-indexed
   const [form, setForm] = useState(emptyPlan)
+  const [stepErrors, setStepErrors] = useState({})
 
   const existingRoots = existingPlans.filter(p => p.type === 'root')
   const parentPlan = existingRoots.find(r => String(r.id) === String(form.parentId))
 
-  const onChange = (key, val) => setForm(f => ({ ...f, [key]: val }))
+  const onChange = (key, val) => {
+    setForm(f => ({ ...f, [key]: val }))
+    setStepErrors(e => ({ ...e, [key]: null }))
+  }
+
+  const validateStep = (s) => {
+    const errs = {}
+    if (s === 0) {
+      if (!form.name.trim()) errs.name = 'Rate plan name is required'
+      else if (form.name.trim().length < 2) errs.name = 'Name must be at least 2 characters'
+      if (form.type === 'derived' && !form.parentId) errs.parentId = 'Please select a root rate'
+    }
+    if (s === 1) {
+      if (form.type === 'root') {
+        if (!form.floorPrice) errs.floorPrice = 'Floor price is required'
+        else if (parseFloat(form.floorPrice) <= 0) errs.floorPrice = 'Floor price must be greater than 0'
+        else if (parseFloat(form.floorPrice) > 10000) errs.floorPrice = 'Floor price cannot exceed 10,000'
+      } else {
+        if (!form.offsetValue) errs.offsetValue = 'Offset value is required'
+        else if (parseFloat(form.offsetValue) <= 0) errs.offsetValue = 'Offset must be greater than 0'
+      }
+    }
+    setStepErrors(errs)
+    return Object.keys(errs).length === 0
+  }
 
   const canNext = [
-    // Step 0 — Basics
     form.name.trim() && (form.type === 'root' || form.parentId),
-    // Step 1 — Pricing
     form.type === 'root' ? !!form.floorPrice : !!form.offsetValue,
-    // Step 2 — Distribution
     true,
-    // Step 3 — Rooms
     true,
-    // Step 4 — Extras (final)
     true,
   ][step]
 
   const isLast = step === WIZARD_STEPS.length - 1
 
   const handleNext = () => {
+    if (!validateStep(step)) return
     if (isLast) {
       onSave({ ...form, id: Date.now() + Math.random() })
     } else {
@@ -511,11 +550,11 @@ function RatePlanWizard({ existingPlans, rooms, extras, currSymbol, onSave, onCa
             exit={{ opacity: 0, x: -10 }}
             transition={{ duration: 0.15 }}
           >
-            {step === 0 && <StepBasics form={form} onChange={onChange} existingRoots={existingRoots} />}
-            {step === 1 && <StepPricing form={form} onChange={onChange} currSymbol={currSymbol} parentPlan={parentPlan} />}
+            {step === 0 && <StepBasics form={form} onChange={onChange} existingRoots={existingRoots} errors={stepErrors} />}
+            {step === 1 && <StepPricing form={form} onChange={onChange} currSymbol={currSymbol} parentPlan={parentPlan} errors={stepErrors} />}
             {step === 2 && <StepDistribution form={form} onChange={onChange} />}
             {step === 3 && <StepRooms form={form} onChange={onChange} rooms={rooms} />}
-            {step === 4 && <StepExtras form={form} onChange={onChange} extras={extras} />}
+            {step === 4 && <StepExtras form={form} onChange={onChange} extras={extras} currSymbol={currSymbol} />}
           </motion.div>
         </AnimatePresence>
 
@@ -535,8 +574,15 @@ function RatePlanWizard({ existingPlans, rooms, extras, currSymbol, onSave, onCa
 
 // ── Rate plan card ─────────────────────────────────────────────────────────────
 
-function PlanCard({ plan, isRoot, parentPlan, rooms, extras, currSymbol, onDelete }) {
+function PlanCard({ plan, isRoot, parentPlan, rooms, extras, currSymbol, onDelete, onEdit, isEditing, onSaveEdit, existingRoots }) {
   const [expanded, setExpanded] = useState(false)
+  const [editForm, setEditForm] = useState(null)
+
+  // Initialize edit form when entering edit mode
+  React.useEffect(() => {
+    if (isEditing) setEditForm({ ...plan })
+    else setEditForm(null)
+  }, [isEditing])
 
   const assignedRooms = rooms.filter(r => plan.roomIds.includes(r.id))
   const assignedExtras = extras.filter(e => plan.extraIds.includes(e.id))
@@ -593,7 +639,7 @@ function PlanCard({ plan, isRoot, parentPlan, rooms, extras, currSymbol, onDelet
             <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
               effectiveChannels === 'direct' ? 'bg-purple-50 text-purple-700' : 'bg-gray-100 text-gray-500'
             }`}>
-              {effectiveChannels === 'direct' ? 'Direct only' : 'All channels'}
+              {effectiveChannels === 'direct' ? 'Your website only' : 'OTAs + direct'}
             </span>
           </div>
           <div className="flex items-center gap-2.5 mt-0.5 text-[12px] text-[#a8b0bd] flex-wrap">
@@ -631,12 +677,16 @@ function PlanCard({ plan, isRoot, parentPlan, rooms, extras, currSymbol, onDelet
               </svg>
             </button>
           )}
+          <Button variant="secondary" size="sm" onClick={onEdit}>
+            {isEditing ? 'Close' : 'Edit'}
+          </Button>
           <button
             onClick={onDelete}
             className="p-1.5 rounded text-[#a8b0bd] hover:text-red-500 hover:bg-red-50 transition-colors"
+            title="Delete"
           >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path d="M18 6L6 18M6 6l12 12" />
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14M10 11v6M14 11v6" />
             </svg>
           </button>
         </div>
@@ -644,7 +694,7 @@ function PlanCard({ plan, isRoot, parentPlan, rooms, extras, currSymbol, onDelet
 
       {/* Expanded detail */}
       <AnimatePresence>
-        {expanded && (
+        {expanded && !isEditing && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
@@ -677,16 +727,138 @@ function PlanCard({ plan, isRoot, parentPlan, rooms, extras, currSymbol, onDelet
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Inline edit form */}
+      <AnimatePresence>
+        {isEditing && editForm && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="px-4 pb-4 border-t border-[#f2f4f8] pt-3 space-y-3">
+              {/* Name */}
+              <div>
+                <label className={labelCls}>Rate plan name</label>
+                <input className={inputCls} value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
+              </div>
+
+              {/* Refundable */}
+              <div>
+                <label className={labelCls}>Cancellation policy</label>
+                <div className="flex gap-2">
+                  {[[true, 'Refundable'], [false, 'Non-refundable']].map(([val, title]) => (
+                    <button key={String(val)} type="button" onClick={() => setEditForm(f => ({ ...f, refundable: val }))}
+                      className={`flex-1 py-2 rounded-lg border text-[12px] font-medium text-center transition-all ${
+                        editForm.refundable === val ? 'border-[#125fe3] bg-[rgba(18,95,227,0.05)] text-[#125fe3]' : 'border-[#e6e9ef] bg-white text-[#52647a] hover:border-[#125fe3]/30'
+                      }`}>{title}</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Pricing */}
+              {isRoot ? (
+                <div>
+                  <label className={labelCls}>Floor price</label>
+                  <div className="relative max-w-[140px]">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-[#a8b0bd]">{currSymbol}</span>
+                    <input type="number" min={0} className={`${inputCls} pl-7`} value={editForm.floorPrice} onChange={e => setEditForm(f => ({ ...f, floorPrice: e.target.value }))} />
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className={labelCls}>Price offset</label>
+                  <div className="flex items-center gap-1.5">
+                    <div className="flex rounded border border-[#e6e9ef] overflow-hidden">
+                      {['+', '-'].map(dir => (
+                        <button key={dir} type="button" onClick={() => setEditForm(f => ({ ...f, offsetDirection: dir }))}
+                          className={`px-3 h-9 text-[13px] font-bold transition-colors ${editForm.offsetDirection === dir ? 'bg-[#125fe3] text-white' : 'bg-white text-[#52647a]'}`}>{dir}</button>
+                      ))}
+                    </div>
+                    <input type="number" min={0} className="px-2 h-9 rounded border border-[#e6e9ef] bg-white text-[13px] text-center w-16 outline-none focus:border-[#125fe3] focus:ring-2 focus:ring-[#125fe3]/20 transition-all"
+                      value={editForm.offsetValue} onChange={e => setEditForm(f => ({ ...f, offsetValue: e.target.value }))} />
+                    <div className="flex rounded border border-[#e6e9ef] overflow-hidden">
+                      {[['percentage', '%'], ['fixed', currSymbol]].map(([val, lbl]) => (
+                        <button key={val} type="button" onClick={() => setEditForm(f => ({ ...f, offsetType: val }))}
+                          className={`px-3 h-9 text-[13px] font-semibold transition-colors ${editForm.offsetType === val ? 'bg-[#125fe3] text-white' : 'bg-white text-[#52647a]'}`}>{lbl}</button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Channels (root only) */}
+              {isRoot && (
+                <div>
+                  <label className={labelCls}>Channel availability</label>
+                  <div className="flex gap-2">
+                    {[['all', 'All channels'], ['direct', 'Direct only']].map(([val, title]) => (
+                      <button key={val} type="button" onClick={() => setEditForm(f => ({ ...f, channels: val }))}
+                        className={`flex-1 py-2 rounded-lg border text-[12px] font-medium text-center transition-all ${
+                          editForm.channels === val ? 'border-[#125fe3] bg-[rgba(18,95,227,0.05)] text-[#125fe3]' : 'border-[#e6e9ef] bg-white text-[#52647a] hover:border-[#125fe3]/30'
+                        }`}>{title}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Room selection */}
+              {rooms.length > 0 && (
+                <div>
+                  <label className={labelCls}>Rooms</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {rooms.map(room => {
+                      const sel = editForm.roomIds.includes(room.id)
+                      return (
+                        <button key={room.id} type="button"
+                          onClick={() => setEditForm(f => ({ ...f, roomIds: sel ? f.roomIds.filter(id => id !== room.id) : [...f.roomIds, room.id] }))}
+                          className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all ${
+                            sel ? 'border-[#125fe3] bg-[rgba(18,95,227,0.05)] text-[#125fe3]' : 'border-[#e6e9ef] bg-white text-[#52647a] hover:border-[#125fe3]/30'
+                          }`}>{room.name}</button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Extras selection */}
+              {extras.length > 0 && (
+                <div>
+                  <label className={labelCls}>Extras</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {extras.map(extra => {
+                      const sel = editForm.extraIds.includes(extra.id)
+                      return (
+                        <button key={extra.id} type="button"
+                          onClick={() => setEditForm(f => ({ ...f, extraIds: sel ? f.extraIds.filter(id => id !== extra.id) : [...f.extraIds, extra.id] }))}
+                          className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all ${
+                            sel ? 'border-[#125fe3] bg-[rgba(18,95,227,0.05)] text-[#125fe3]' : 'border-[#e6e9ef] bg-white text-[#52647a] hover:border-[#125fe3]/30'
+                          }`}>{extra.name}</button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 pt-1">
+                <Button onClick={() => editForm.name.trim() && onSaveEdit(editForm)} disabled={!editForm.name.trim()}>Save changes</Button>
+                <Button variant="ghost" onClick={onEdit}>Cancel</Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }
 
 // ── Plan tree renderer ─────────────────────────────────────────────────────────
 
-function PlanTree({ plans, rooms, extras, currSymbol, onDelete }) {
+function PlanTree({ plans, rooms, extras, currSymbol, onDelete, editingId, onEdit, onSaveEdit }) {
   const roots = plans.filter(p => p.type === 'root')
   const derived = plans.filter(p => p.type === 'derived')
-  // Plans with no valid parent still render at root level
   const orphans = derived.filter(p => !roots.find(r => String(r.id) === String(p.parentId)))
 
   return (
@@ -702,13 +874,15 @@ function PlanTree({ plans, rooms, extras, currSymbol, onDelete }) {
               extras={extras}
               currSymbol={currSymbol}
               onDelete={() => onDelete(root.id)}
+              onEdit={() => onEdit(editingId === root.id ? null : root.id)}
+              isEditing={editingId === root.id}
+              onSaveEdit={onSaveEdit}
+              existingRoots={roots}
             />
-            {/* Derived plans under this root */}
             {derived
               .filter(p => String(p.parentId) === String(root.id))
               .map(child => (
                 <div key={child.id} className="ml-6 mt-2 relative">
-                  {/* Connector */}
                   <div className="absolute -left-3 top-0 bottom-0 w-px bg-[#e6e9ef]" />
                   <div className="absolute -left-3 top-5 w-3 h-px bg-[#e6e9ef]" />
                   <PlanCard
@@ -719,6 +893,10 @@ function PlanTree({ plans, rooms, extras, currSymbol, onDelete }) {
                     extras={extras}
                     currSymbol={currSymbol}
                     onDelete={() => onDelete(child.id)}
+                    onEdit={() => onEdit(editingId === child.id ? null : child.id)}
+                    isEditing={editingId === child.id}
+                    onSaveEdit={onSaveEdit}
+                    existingRoots={roots}
                   />
                 </div>
               ))}
@@ -734,6 +912,7 @@ function PlanTree({ plans, rooms, extras, currSymbol, onDelete }) {
 export default function RatePlans() {
   const { data, setData, nextStep } = useOnboarding()
   const [showWizard, setShowWizard] = useState(false)
+  const [editingId, setEditingId] = useState(null)
 
   const plans = data.ratePlans || []
   const rooms = data.rooms || []
@@ -746,9 +925,14 @@ export default function RatePlans() {
     setShowWizard(false)
   }
 
+  const updatePlan = (updated) => {
+    setData('ratePlans', plans.map(p => p.id === updated.id ? updated : p))
+    setEditingId(null)
+  }
+
   const deletePlan = (id) => {
-    // Also remove any derived plans that depended on this one
     setData('ratePlans', plans.filter(p => p.id !== id && String(p.parentId) !== String(id)))
+    if (editingId === id) setEditingId(null)
   }
 
   return (
@@ -771,6 +955,9 @@ export default function RatePlans() {
               extras={extras}
               currSymbol={currSymbol}
               onDelete={deletePlan}
+              editingId={editingId}
+              onEdit={setEditingId}
+              onSaveEdit={updatePlan}
             />
           )}
 
