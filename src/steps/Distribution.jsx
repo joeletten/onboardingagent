@@ -304,9 +304,17 @@ export default function Distribution() {
   return (
     <>
       <KompasMessage>
-        <p>Now let's set up your <strong>distribution matrix</strong>.</p>
+        <p>Time to decide <strong>what gets published where</strong>.</p>
         <p className="mt-2 text-[#52647a]">
-          For each channel, choose which rate plans and rooms to publish. Click a cell to toggle availability. Click a room name or plan name to toggle the entire column or row.
+          You've set up your rooms and rate plans — now you control exactly which combinations appear on each channel. For example, you might want:
+        </p>
+        <ul className="mt-1.5 text-[#52647a] space-y-1 text-[13px]">
+          <li>Your <strong>Non-refundable</strong> rate on Booking.com for all room types</li>
+          <li>A <strong>Breakfast Included</strong> rate only on your direct website</li>
+          <li>Your <strong>Suite</strong> excluded from Airbnb but available everywhere else</li>
+        </ul>
+        <p className="mt-2 text-[#52647a]">
+          Each tab is a channel. The grid shows your rate plans (rows) and rooms (columns). Toggle cells on or off to control what guests see on that channel.
         </p>
       </KompasMessage>
 
@@ -374,8 +382,8 @@ export default function Distribution() {
                       <p className="text-[14px] font-semibold text-[#1f2124]">{activeChannel.name}</p>
                       <p className="text-[11px] text-[#a8b0bd]">
                         {activeChannel.id === 'direct'
-                          ? 'Your own website & booking engine'
-                          : 'Online travel agency'}
+                          ? 'Your own website — commission-free bookings'
+                          : 'OTA — toggle which room + rate plan combos guests can book here'}
                       </p>
                     </div>
 
@@ -412,6 +420,9 @@ export default function Distribution() {
                       onChange={updateCell}
                       onBatchChange={updateBatch}
                     />
+                    <p className="text-[11px] text-[#a8b0bd] mt-3 pt-3 border-t border-[#f2f4f8]">
+                      Tip: click a <strong className="text-[#52647a]">room name</strong> to toggle an entire column, or a <strong className="text-[#52647a]">rate plan name</strong> to toggle an entire row.
+                    </p>
                   </div>
                 </motion.div>
               </AnimatePresence>

@@ -51,7 +51,7 @@ function TypeBadge({ type }) {
 
 function ChannelBadge({ channels }) {
   return channels === 'direct' ? (
-    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-purple-50 text-purple-700">Your website only</span>
+    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-purple-50 text-purple-700">Direct website only</span>
   ) : (
     <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">OTAs + direct</span>
   )
@@ -80,12 +80,33 @@ function ItemIcon({ type }) {
 
 // ── Add Form ──────────────────────────────────────────────────────────────────
 
+// Keywords that strongly suggest a specific item type
+const DISCOUNT_KEYWORDS = ['discount', 'deal', 'offer', 'promo', 'reduction', 'early bird', 'long stay', 'last minute', 'special rate', '% off']
+const FEE_KEYWORDS = ['fee', 'tax', 'charge', 'surcharge', 'levy', 'cleaning', 'resort fee', 'city tax', 'tourist tax', 'service charge', 'damage deposit']
+const EXTRA_KEYWORDS = ['breakfast', 'lunch', 'dinner', 'meal', 'parking', 'spa', 'gym', 'wifi', 'minibar', 'bike', 'bicycle', 'transfer', 'shuttle', 'cot', 'crib', 'bed', 'pet', 'laundry', 'late check', 'early check', 'room upgrade', 'champagne', 'wine', 'package', 'tour', 'rental', 'equipment']
+
+function suggestItemType(name) {
+  const lower = (name || '').toLowerCase()
+  if (!lower) return null
+  if (DISCOUNT_KEYWORDS.some(kw => lower.includes(kw))) return 'discount'
+  if (FEE_KEYWORDS.some(kw => lower.includes(kw))) return 'fee'
+  if (EXTRA_KEYWORDS.some(kw => lower.includes(kw))) return 'extra'
+  return null
+}
+
+const TYPE_LABELS = { extra: 'Extra', fee: 'Fee', discount: 'Discount' }
+
 export function AddForm({ onSave, onCancel, initial, currSymbol = '€' }) {
   const [form, setForm] = useState(initial || emptyItem('extra'))
+  const [dismissed, setDismissed] = useState(false)
   const isDiscount = form.itemType === 'discount'
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setDismissed(false) }
 
   const canSave = form.name.trim() && (isDiscount ? form.percentage : form.price)
+
+  // Type mismatch suggestion
+  const suggested = suggestItemType(form.name)
+  const hasMismatch = suggested && suggested !== form.itemType && !dismissed && form.name.trim().length >= 3
 
   const inputCls = `w-full px-3 py-2 rounded-lg border border-[#e6e9ef] bg-white text-[13px] text-[#1f2124]
     focus:outline-none focus:ring-2 focus:ring-[#125fe3]/20 focus:border-[#125fe3] transition-all placeholder:text-[#a8b0bd]`
@@ -101,24 +122,42 @@ export function AddForm({ onSave, onCancel, initial, currSymbol = '€' }) {
 
   return (
     <div className="bg-white rounded-xl border-2 border-dashed border-[rgba(18,95,227,0.25)] p-4 space-y-3">
-      {/* Row 1: Type + Name side by side */}
-      <div className="flex items-end gap-2">
-        <div className="flex rounded-lg border border-[#e6e9ef] overflow-hidden flex-shrink-0">
-          {['extra', 'fee', 'discount'].map(t => (
-            <button key={t} onClick={() => set('itemType', t)} className={`px-3 py-2 text-[12px] font-semibold capitalize transition-all ${
-              form.itemType === t ? 'bg-[#125fe3] text-white' : 'bg-white text-[#52647a] hover:bg-[#f9fafb]'
-            }`}>{t}</button>
+      {/* Row 1: Type selector */}
+      <div>
+        <label className={labelCls}>What type of item is this?</label>
+        <div className="flex gap-2">
+          {[
+            ['extra', 'Extra', 'Optional add-on guests can choose', 'bg-blue-50 border-blue-200 text-blue-700', 'border-blue-400 bg-blue-50'],
+            ['fee', 'Fee', 'Mandatory charge applied automatically', 'bg-amber-50 border-amber-200 text-amber-700', 'border-amber-400 bg-amber-50'],
+            ['discount', 'Discount', 'Percentage off the room rate', 'bg-green-50 border-green-200 text-green-700', 'border-green-400 bg-green-50'],
+          ].map(([val, title, desc, activeCls, activeBorder]) => (
+            <button
+              key={val}
+              type="button"
+              onClick={() => set('itemType', val)}
+              className={`flex-1 p-2.5 rounded-lg border text-left transition-all ${
+                form.itemType === val
+                  ? activeBorder
+                  : 'border-[#e6e9ef] bg-white hover:border-[#dbe0e6]'
+              }`}
+            >
+              <p className={`text-[12px] font-semibold ${form.itemType === val ? activeCls.split(' ').pop() : 'text-[#1f2124]'}`}>{title}</p>
+              <p className="text-[10px] text-[#a8b0bd] mt-0.5 leading-snug">{desc}</p>
+            </button>
           ))}
         </div>
-        <div className="flex-1">
-          <input
-            className={inputCls}
-            placeholder={isDiscount ? 'e.g. Early bird discount' : form.itemType === 'fee' ? 'e.g. Cleaning fee' : 'e.g. Breakfast'}
-            value={form.name}
-            onChange={e => set('name', e.target.value)}
-            autoFocus
-          />
-        </div>
+      </div>
+
+      {/* Row 2: Name */}
+      <div>
+        <label className={labelCls}>Name</label>
+        <input
+          className={inputCls}
+          placeholder={isDiscount ? 'e.g. Early bird discount' : form.itemType === 'fee' ? 'e.g. Cleaning fee' : 'e.g. Breakfast'}
+          value={form.name}
+          onChange={e => set('name', e.target.value)}
+          autoFocus
+        />
       </div>
 
       {/* Row 2: Price/Discount + VAT + Charge basis */}
@@ -137,46 +176,56 @@ export function AddForm({ onSave, onCancel, initial, currSymbol = '€' }) {
           </div>
         </div>
       ) : (
-        <div className="flex items-end gap-2 flex-wrap">
-          <div className="w-24">
-            <label className="text-[11px] font-semibold text-[#52647a] block mb-1">Price</label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-[#a8b0bd] pointer-events-none">{currSymbol}</span>
-              <input
-                type="number" min={0} placeholder="0.00"
-                className={`${inputCls} pl-6`}
-                value={form.price}
-                onChange={e => set('price', e.target.value)}
-              />
+        <div className="space-y-2">
+          <div className="flex items-end gap-2 flex-wrap">
+            <div className="w-28">
+              <label className="text-[11px] font-semibold text-[#52647a] block mb-1">Price excl. VAT</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-[#a8b0bd] pointer-events-none">{currSymbol}</span>
+                <input
+                  type="number" min={0} placeholder="0.00"
+                  className={`${inputCls} pl-6`}
+                  value={form.price}
+                  onChange={e => set('price', e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="w-20">
+              <label className="text-[11px] font-semibold text-[#52647a] block mb-1">VAT rate</label>
+              <select className={inputCls} value={form.vatRate} onChange={e => set('vatRate', e.target.value)}>
+                {VAT_RATES.map(r => <option key={r} value={r}>{r}%</option>)}
+              </select>
+            </div>
+            <div className="flex rounded-lg border border-[#e6e9ef] overflow-hidden flex-shrink-0">
+              {CHARGE_BASIS_OPTIONS.map(opt => (
+                <button key={opt.value} onClick={() => set('chargeBasis', opt.value)} className={`px-2.5 py-2 text-[11px] font-medium transition-all ${
+                  form.chargeBasis === opt.value
+                    ? 'bg-[rgba(18,95,227,0.06)] text-[#125fe3]'
+                    : 'bg-white text-[#52647a] hover:bg-[#f9fafb]'
+                }`}>
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
-          <div className="w-20">
-            <label className="text-[11px] font-semibold text-[#52647a] block mb-1">VAT</label>
-            <select className={inputCls} value={form.vatRate} onChange={e => set('vatRate', e.target.value)}>
-              {VAT_RATES.map(r => <option key={r} value={r}>{r}%</option>)}
-            </select>
-          </div>
-          <div className="flex rounded-lg border border-[#e6e9ef] overflow-hidden flex-shrink-0">
-            {CHARGE_BASIS_OPTIONS.map(opt => (
-              <button key={opt.value} onClick={() => set('chargeBasis', opt.value)} className={`px-2.5 py-2 text-[11px] font-medium transition-all ${
-                form.chargeBasis === opt.value
-                  ? 'bg-[rgba(18,95,227,0.06)] text-[#125fe3]'
-                  : 'bg-white text-[#52647a] hover:bg-[#f9fafb]'
-              }`}>
-                {opt.label}
-              </button>
-            ))}
-          </div>
+          {form.price && parseFloat(form.price) > 0 && (
+            <div className="rounded-lg border border-[#e6e9ef] bg-[#f9fafb] px-3 py-2 flex items-center justify-between">
+              <span className="text-[11px] text-[#a8b0bd]">Guest pays incl. VAT</span>
+              <span className="text-[12px] font-semibold text-[#1f2124]">
+                {currSymbol}{(parseFloat(form.price) * (1 + (parseFloat(form.vatRate) || 0) / 100)).toFixed(2)}
+              </span>
+            </div>
+          )}
         </div>
       )}
 
       {/* Row 3: Channels */}
       <div>
-        <label className="text-[11px] font-semibold text-[#52647a] block mb-1.5">Availability</label>
+        <label className="text-[11px] font-semibold text-[#52647a] block mb-1.5">Distribution</label>
         <div className="flex gap-2">
           {[
-            ['all', 'All channels', 'OTAs + your website'],
-            ['direct', 'Direct only', 'Your website only'],
+            ['all', 'OTAs + direct website', 'Booking.com, Expedia, Airbnb, etc. and your own website'],
+            ['direct', 'Direct website only', 'Your own booking website only — no OTA commission'],
           ].map(([val, title, desc]) => (
             <button
               key={val}
@@ -193,6 +242,34 @@ export function AddForm({ onSave, onCancel, initial, currSymbol = '€' }) {
           ))}
         </div>
       </div>
+
+      {/* Type mismatch warning */}
+      {hasMismatch && (
+        <div className="flex items-start gap-2.5 p-3 rounded-lg border border-amber-200 bg-amber-50">
+          <svg className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+          </svg>
+          <div className="flex-1">
+            <p className="text-[12px] text-amber-800 leading-relaxed">
+              "<strong>{form.name}</strong>" sounds like it might be {suggested === 'extra' ? 'an' : 'a'} <strong>{TYPE_LABELS[suggested]}</strong> rather than {form.itemType === 'extra' ? 'an' : 'a'} {TYPE_LABELS[form.itemType]}. Want to switch?
+            </p>
+            <div className="flex gap-2 mt-2">
+              <button
+                onClick={() => set('itemType', suggested)}
+                className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-amber-100 text-amber-800 hover:bg-amber-200 transition-colors"
+              >
+                Change to {TYPE_LABELS[suggested]}
+              </button>
+              <button
+                onClick={() => setDismissed(true)}
+                className="px-2.5 py-1 rounded-lg text-[11px] font-medium text-amber-600 hover:bg-amber-100 transition-colors"
+              >
+                Keep as {TYPE_LABELS[form.itemType]}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-2">
         <Button onClick={() => canSave && onSave(form)} disabled={!canSave}>Save</Button>
@@ -313,7 +390,15 @@ export default function Extras() {
       <KompasMessage>
         <p>Now let's add your <strong>extras, fees, and discounts</strong>.</p>
         <p className="mt-2 text-[#52647a]">
-          Think breakfast, cleaning fees, early check-in, late check-out, cot rental, seasonal discounts — anything you charge or offer on top of the room rate. Add as many as you like, or type them in the chat bar below.
+          These are items on top of the base room rate. There are three types:
+        </p>
+        <ul className="mt-1.5 text-[#52647a] space-y-1 text-[13px]">
+          <li><strong className="text-blue-600">Extra</strong> — an optional add-on guests can choose, like breakfast, parking, or a spa package.</li>
+          <li><strong className="text-amber-600">Fee</strong> — a mandatory charge applied automatically, like a cleaning fee, resort fee, or city tax.</li>
+          <li><strong className="text-green-600">Discount</strong> — a percentage off the room rate, like an early bird deal or a long-stay discount.</li>
+        </ul>
+        <p className="mt-1.5 text-[#52647a]">
+          Add as many as you like, or type them in the chat bar below.
         </p>
       </KompasMessage>
 

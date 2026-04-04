@@ -283,8 +283,8 @@ function StepDistribution({ form, onChange }) {
             </p>
             <div className="flex gap-2">
               {[
-                ['all', 'All channels', 'Available on OTAs (Booking.com, Expedia, Airbnb, etc.) and your direct booking website'],
-                ['direct', 'Direct only', 'Exclusively on your own website — not published to OTAs'],
+                ['all', 'OTAs + direct website', 'Distributed to Booking.com, Expedia, Airbnb, and other OTAs, as well as your own booking website'],
+                ['direct', 'Direct website only', 'Exclusively on your own booking website — commission-free. Lighthouse can set one up for you.'],
               ].map(([val, title, desc]) => (
                 <button
                   key={val}
@@ -639,7 +639,7 @@ function PlanCard({ plan, isRoot, parentPlan, rooms, extras, currSymbol, onDelet
             <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
               effectiveChannels === 'direct' ? 'bg-purple-50 text-purple-700' : 'bg-gray-100 text-gray-500'
             }`}>
-              {effectiveChannels === 'direct' ? 'Your website only' : 'OTAs + direct'}
+              {effectiveChannels === 'direct' ? 'Direct website only' : 'OTAs + direct'}
             </span>
           </div>
           <div className="flex items-center gap-2.5 mt-0.5 text-[12px] text-[#a8b0bd] flex-wrap">
@@ -794,7 +794,7 @@ function PlanCard({ plan, isRoot, parentPlan, rooms, extras, currSymbol, onDelet
                 <div>
                   <label className={labelCls}>Channel availability</label>
                   <div className="flex gap-2">
-                    {[['all', 'All channels'], ['direct', 'Direct only']].map(([val, title]) => (
+                    {[['all', 'OTAs + direct website'], ['direct', 'Direct website only']].map(([val, title]) => (
                       <button key={val} type="button" onClick={() => setEditForm(f => ({ ...f, channels: val }))}
                         className={`flex-1 py-2 rounded-lg border text-[12px] font-medium text-center transition-all ${
                           editForm.channels === val ? 'border-[#125fe3] bg-[rgba(18,95,227,0.05)] text-[#125fe3]' : 'border-[#e6e9ef] bg-white text-[#52647a] hover:border-[#125fe3]/30'
@@ -938,14 +938,58 @@ export default function RatePlans() {
   return (
     <>
       <KompasMessage>
-        <p>Now let's set up your <strong>rate plans</strong>.</p>
+        <p>Now let's set up your <strong>rate plans</strong> — these are central to how Lighthouse manages your pricing.</p>
         <p className="mt-2 text-[#52647a]">
-          Rate plans are the conditions under which you offer a price — think "Flexible Rate", "Non-refundable", or "Breakfast Included". Start with a <strong>root rate</strong> (your base offering), then optionally derive others from it with a price offset.
+          A rate plan defines <strong>the terms under which a guest books a room</strong>. The same room can be sold under different rate plans, each with its own conditions and price. For example:
+        </p>
+        <ul className="mt-1.5 text-[#52647a] space-y-1 text-[13px]">
+          <li><strong>Flexible Rate</strong> — full price, but guests can cancel for free. This is usually your default.</li>
+          <li><strong>Non-refundable</strong> — 10% cheaper, but no cancellations. Guarantees revenue.</li>
+          <li><strong>Breakfast Included</strong> — slightly higher price, but includes breakfast. Adds perceived value.</li>
+        </ul>
+        <p className="mt-2 text-[#52647a]">
+          You'll start by creating a <strong>root rate</strong> — your main offering with a floor price (the lowest it can ever go). Then you can create <strong>derived rates</strong> that are automatically priced relative to it (e.g. Non-refundable at −10%). When Lighthouse adjusts your pricing, all derived rates move together.
         </p>
       </KompasMessage>
 
       <InteractiveArea>
         <div className="max-w-xl space-y-3">
+
+          {/* Visual example — only shown before any plans are created */}
+          {plans.length === 0 && !showWizard && (
+            <div className="rounded-xl border border-[#e6e9ef] bg-white overflow-hidden">
+              <div className="px-4 py-3 bg-[#f9fafb] border-b border-[#e6e9ef]">
+                <p className="text-[11px] font-bold text-[#a8b0bd] uppercase tracking-widest">How rate plans work — example</p>
+              </div>
+              <div className="p-4 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-[#125fe3]" />
+                    <span className="text-[13px] font-semibold text-[#1f2124]">Flexible Rate</span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[rgba(18,95,227,0.08)] text-[#125fe3] uppercase">Root</span>
+                  </div>
+                  <span className="text-[13px] font-semibold text-[#1f2124]">{currSymbol}120</span>
+                </div>
+                <div className="flex items-center justify-between ml-4 pl-3 border-l-2 border-[#e6e9ef]">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[13px] text-[#52647a]">Non-refundable</span>
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-red-50 text-red-600">−10%</span>
+                  </div>
+                  <span className="text-[13px] text-[#52647a]">{currSymbol}108</span>
+                </div>
+                <div className="flex items-center justify-between ml-4 pl-3 border-l-2 border-[#e6e9ef]">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[13px] text-[#52647a]">Breakfast Included</span>
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-green-50 text-green-700">+{currSymbol}15</span>
+                  </div>
+                  <span className="text-[13px] text-[#52647a]">{currSymbol}135</span>
+                </div>
+                <p className="text-[11px] text-[#a8b0bd] pt-1 border-t border-[#f2f4f8]">
+                  When Lighthouse changes the Flexible Rate to {currSymbol}140, Non-refundable auto-adjusts to {currSymbol}126, and Breakfast Included to {currSymbol}155.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Plan tree */}
           {plans.length > 0 && (
