@@ -50,20 +50,24 @@ export default function Competitors() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [searching, setSearching] = useState(false)
+  const [searchError, setSearchError] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
   const debounceRef = useRef(null)
 
   useEffect(() => {
-    if (searchQuery.length < 2) { setSearchResults([]); return }
+    if (searchQuery.length < 2) { setSearchResults([]); setSearchError(false); return }
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(async () => {
       setSearching(true)
+      setSearchError(false)
       try {
         const res = await fetch(`/api/places?q=${encodeURIComponent(searchQuery)}`)
+        if (!res.ok) throw new Error('Search failed')
         const json = await res.json()
         setSearchResults(Array.isArray(json) ? json : [])
       } catch {
         setSearchResults([])
+        setSearchError(true)
       } finally {
         setSearching(false)
       }
@@ -84,11 +88,13 @@ export default function Competitors() {
         name: hotel.name,
         city: hotel.city,
         country: hotel.country,
-        stars: hotel.rating ? Math.round(hotel.rating) : 0,
         dist: hotel.city === data.property?.city ? 'Nearby' : hotel.city || '',
       }
       setCustom(prev => [...prev, newComp])
       setSelected(prev => new Set(prev).add(newComp.id))
+      // Persist immediately so the sync effect doesn't overwrite the selection
+      const currentPicked = allCompetitors.filter(c => selected.has(c.id))
+      setData('competitors', [...currentPicked, newComp])
     }
     setSearchQuery('')
     setSearchResults([])
@@ -151,13 +157,6 @@ export default function Competitors() {
                     <p className="text-xs text-lh-text-muted">{comp.dist} away</p>
                   </div>
                 </div>
-                <div className="flex gap-0.5">
-                  {Array.from({ length: comp.stars }).map((_, i) => (
-                    <svg key={i} className="w-3 h-3 text-amber-400 fill-current" viewBox="0 0 24 24">
-                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                    </svg>
-                  ))}
-                </div>
               </button>
             )
           })}
@@ -186,15 +185,6 @@ export default function Competitors() {
                     <p className="text-xs text-lh-text-muted">{comp.dist || comp.city || 'Custom'}</p>
                   </div>
                 </button>
-                {comp.stars > 0 && (
-                  <div className="flex gap-0.5 flex-shrink-0">
-                    {Array.from({ length: comp.stars }).map((_, i) => (
-                      <svg key={i} className="w-3 h-3 text-amber-400 fill-current" viewBox="0 0 24 24">
-                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                      </svg>
-                    ))}
-                  </div>
-                )}
                 <button
                   onClick={() => removeCustom(comp.id)}
                   className="p-1.5 rounded text-[#a8b0bd] hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0"
@@ -236,14 +226,18 @@ export default function Competitors() {
                       className="w-full text-left px-4 py-3 hover:bg-[#f9fafb] transition-colors border-b border-[#e6e9ef] last:border-0"
                     >
                       <p className="text-[13px] font-semibold text-[#1f2124]">{h.name}</p>
-                      <p className="text-[12px] text-[#a8b0bd]">{h.city}{h.city && h.country ? ', ' : ''}{h.country}{h.rating ? ` · ★ ${h.rating}` : ''}</p>
+                      <p className="text-[12px] text-[#a8b0bd]">{h.city}{h.city && h.country ? ', ' : ''}{h.country}</p>
                     </button>
                   ))}
                 </div>
               )}
               {!searching && searchQuery.length >= 2 && searchResults.length === 0 && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-[#e6e9ef] rounded-lg shadow-md z-20 p-4">
-                  <p className="text-[13px] text-[#a8b0bd]">No hotels found. Try a different name.</p>
+                  {searchError ? (
+                    <p className="text-[13px] text-[#b91c1c]">Search failed — please check your connection and try again.</p>
+                  ) : (
+                    <p className="text-[13px] text-[#a8b0bd]">No hotels found. Try a different name.</p>
+                  )}
                 </div>
               )}
               <button

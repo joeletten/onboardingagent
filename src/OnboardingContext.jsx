@@ -47,8 +47,8 @@ const initialState = {
 function reducer(state, action) {
   switch (action.type) {
     case 'SET_STEP':
-      // Only allow navigating to completed steps or the current frontier (maxStep + 1)
-      if (action.step > state.maxStep + 1) return state
+      // Only allow navigating back to completed steps (up to maxStep)
+      if (action.step > state.maxStep) return state
       return { ...state, currentStep: action.step, isTyping: true, stepReady: false }
     case 'NEXT_STEP': {
       const next = state.currentStep + 1
@@ -63,8 +63,12 @@ function reducer(state, action) {
       return { ...state, stepReady: true, isTyping: false }
     case 'RESET':
       return { ...initialState, resetId: state.resetId + 1 }
-    case 'HYDRATE':
-      return { ...state, ...action.payload, maxStep: Math.max(state.maxStep, action.payload.maxStep ?? action.payload.currentStep ?? 0), isTyping: true, stepReady: false }
+    case 'HYDRATE': {
+      // maxStep = highest completed step. For old data, derive as currentStep - 1
+      // since currentStep is the step you're working on, not yet completed.
+      const rawMax = action.payload.maxStep ?? Math.max(0, (action.payload.currentStep || 0) - 1)
+      return { ...state, ...action.payload, maxStep: rawMax, isTyping: true, stepReady: false }
+    }
     default:
       return state
   }

@@ -352,7 +352,6 @@ export function PropertyCard({ property }) {
       : property.city || property.country || null,
     property.rooms ? `${property.rooms} rooms` : null,
     property.type  || null,
-    property.rating && !property.stars ? `★ ${property.rating}` : null,
   ].filter(Boolean)
 
   return (
@@ -375,15 +374,6 @@ export function PropertyCard({ property }) {
               <p className="text-[12px] text-[#a8b0bd] mt-1">{property.address}</p>
             )}
           </div>
-          {property.stars > 0 && (
-            <div className="flex gap-0.5 flex-shrink-0">
-              {Array.from({ length: property.stars }).map((_, i) => (
-                <svg key={i} className="w-3.5 h-3.5 text-amber-400 fill-current" viewBox="0 0 24 24">
-                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                </svg>
-              ))}
-            </div>
-          )}
         </div>
       </Card.Content>
     </Card>

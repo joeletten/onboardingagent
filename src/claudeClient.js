@@ -66,9 +66,6 @@ Available step IDs: welcome, role, property, channelConnect, pms, rooms, extras,
         name:        { type: 'string', description: 'Hotel/property name' },
         address:     { type: 'string', description: 'Street address' },
         country:     { type: 'string', description: 'Country name' },
-        checkIn:     { type: 'string', description: 'Default check-in time, e.g. "15:00"' },
-        checkOut:    { type: 'string', description: 'Default check-out time, e.g. "11:00"' },
-        stars:       { type: 'number', description: 'Star rating 1-5' },
         totalRooms:  { type: 'number', description: 'Total number of rooms in the property' },
         market:      { type: 'string', description: 'City or market name for comp-set purposes' },
         // Contact
@@ -263,7 +260,6 @@ All subsequent rooms need offsetDirection, offsetType, and offsetValue relative 
       properties: {
         name:  { type: 'string', description: 'Hotel name' },
         city:  { type: 'string' },
-        stars: { type: 'number' },
       },
     },
   },
@@ -293,7 +289,6 @@ Generate 4-6 realistic competitor hotel names that fit the described segment and
             properties: {
               name:  { type: 'string', description: 'Hotel name' },
               city:  { type: 'string', description: 'City' },
-              stars: { type: 'number', description: 'Star rating 1-5' },
               dist:  { type: 'string', description: 'Approximate distance, e.g. "0.5 km"' },
             },
           },
@@ -350,7 +345,6 @@ export function buildSystemPrompt(data, currentStep, allSteps) {
 
   const propName    = property.name  || data.property?.name
   const totalRooms  = property.rooms || data.property?.rooms
-  const stars       = property.stars || data.property?.stars
   const market      = loc.market
 
   const connectedChannels = [
@@ -375,7 +369,6 @@ export function buildSystemPrompt(data, currentStep, allSteps) {
   lines.push('\n### Property')
   lines.push(propName   ? done(`Hotel name: ${propName}`) : missing('Hotel name unknown'))
   lines.push(totalRooms ? done(`Total rooms: ${totalRooms}`) : missing('Total room count unknown'))
-  lines.push(stars      ? done(`Star rating: ${stars}★`)  : missing('Star rating not set'))
   lines.push(market     ? done(`Market/city: ${market}`)  : missing('Market/city not set'))
   lines.push(           done(`Currency: ${currency}`))
 
@@ -445,7 +438,7 @@ export function buildSystemPrompt(data, currentStep, allSteps) {
   const stepGuidance = {
     welcome:        'Ask for the user\'s name if not already provided. Use set_user_info to save it immediately when they provide it, then call advance_step right away.',
     role:           'Ask what their role is at the hotel (e.g. General Manager, Revenue Manager, Owner). Use set_user_info to save it immediately, then call advance_step right away.',
-    property:       'Make sure we have hotel name and country at minimum. Use set_property_info as soon as they give you any details. Once you have at least a name and country saved, call advance_step — you can always collect remaining details (rooms, stars, etc.) later.',
+    property:       'Make sure we have hotel name and country at minimum. Use set_property_info as soon as they give you any details. Once you have at least a name and country saved, call advance_step — you can always collect remaining details (rooms, etc.) later.',
     channelConnect: 'Help the user connect Booking.com and/or Expedia. Use connect_channel if they tell you which they use. Once they\'ve connected at least one channel or said they want to skip, call advance_step.',
     pms:            'Ask which PMS they use. Use set_pms when they tell you and then call advance_step. If they don\'t have one, acknowledge it and call advance_step right away.',
     rooms:          'Help set up all room types. We need at least 1. The first one is the base room (needs a reference rate). Others are priced relative to it. If they mention room names, counts, or rates, use add_room immediately.',
@@ -490,12 +483,39 @@ ${stepGuidance}
 **Cross-step edits.** You can modify data for any step at any time — even if the user isn't currently on that step. Use the appropriate tool to save the data, and if the user explicitly asks to work on a different section, use navigate_to_step to take them there. For minor corrections (e.g. fixing a typo in the hotel name), just save the data without navigating away.`
 }
 
+// ── Session token management ─────────────────────────────────────────────────
+// Obtains a session token from /api/session on first use and caches it.
+// Automatically refreshes if the token is expired or about to expire (5 min buffer).
+
+let _sessionToken = null
+let _tokenExpires = 0
+
+async function getSessionToken() {
+  // Return cached token if still valid (with 5-minute buffer)
+  if (_sessionToken && Date.now() < _tokenExpires - 5 * 60 * 1000) {
+    return _sessionToken
+  }
+
+  const res = await fetch('/api/session', { method: 'POST' })
+  if (!res.ok) throw new Error('Failed to obtain session token')
+
+  const { token, expires } = await res.json()
+  _sessionToken = token
+  _tokenExpires = expires
+  return token
+}
+
 // ── API call ──────────────────────────────────────────────────────────────────
 
 export async function callClaude(messages, data, currentStep, allSteps) {
+  const token = await getSessionToken()
+
   const res = await fetch('/api/chat', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-session-token': token,
+    },
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
       max_tokens: 2048,
@@ -507,10 +527,13 @@ export async function callClaude(messages, data, currentStep, allSteps) {
 
   const json = await res.json()
   if (!res.ok) {
-    const msg = typeof json.error === 'object'
-      ? (json.error?.message || JSON.stringify(json.error))
-      : (json.error || `API error ${res.status}`)
-    throw new Error(msg)
+    const err = new Error(
+      typeof json.error === 'object'
+        ? (json.error?.message || JSON.stringify(json.error))
+        : (json.error || `API error ${res.status}`)
+    )
+    err.status = res.status
+    throw err
   }
   return json
 }
@@ -560,7 +583,6 @@ export function executeTool(name, input, currentData) {
       if (input.name       != null) updatedProperty.name    = input.name
       if (input.address    != null) updatedProperty.address = input.address
       if (input.country    != null) updatedProperty.country = input.country
-      if (input.stars      != null) updatedProperty.stars   = input.stars
       if (input.totalRooms != null) updatedProperty.rooms   = input.totalRooms
       if (input.market     != null) updatedProperty.city    = input.market
       d.property = updatedProperty
@@ -574,8 +596,6 @@ export function executeTool(name, input, currentData) {
       if (input.name     != null) hotelDetails.name     = input.name
       if (input.address  != null) hotelDetails.address  = input.address
       if (input.country  != null) hotelDetails.country  = input.country
-      if (input.checkIn  != null) hotelDetails.checkIn  = input.checkIn
-      if (input.checkOut != null) hotelDetails.checkOut = input.checkOut
 
       if (input.contactName != null) contact.contactName = input.contactName
       if (input.phone       != null) contact.phone       = input.phone
@@ -762,7 +782,7 @@ export function executeTool(name, input, currentData) {
 
     // ── Competitors ──────────────────────────────────────────────────────────
     case 'add_competitor': {
-      const comp = { id: Date.now() + Math.random(), name: input.name, city: input.city || '', stars: input.stars || null }
+      const comp = { id: Date.now() + Math.random(), name: input.name, city: input.city || '' }
       d.competitors.push(comp)
       return { data: d, result: { success: true, message: `Added competitor "${comp.name}"` } }
     }
@@ -779,7 +799,6 @@ export function executeTool(name, input, currentData) {
         id: `segment-${Date.now()}-${i}`,
         name: c.name,
         city: c.city || '',
-        stars: c.stars || 0,
         dist: c.dist || '',
       }))
       d.competitors = newComps
