@@ -25,7 +25,13 @@ export default function Competitors() {
     return new Set(allCompetitors.filter(c => savedNames.has(c.name.toLowerCase())).map(c => c.id))
   })
 
-  // Keep selection in sync when chat updates data.competitors
+  // Keep custom list and selection in sync when chat updates data.competitors
+  useEffect(() => {
+    const suggestedNames = new Set(suggested.map(c => c.name.toLowerCase()))
+    const newCustom = (data.competitors || []).filter(c => !suggestedNames.has(c.name?.toLowerCase()))
+    setCustom(newCustom)
+  }, [data.competitors, suggested])
+
   useEffect(() => {
     const savedNames = new Set((data.competitors || []).map(c => c.name?.toLowerCase()))
     setSelected(new Set(allCompetitors.filter(c => savedNames.has(c.name.toLowerCase())).map(c => c.id)))
@@ -112,7 +118,7 @@ export default function Competitors() {
           Pick the ones you consider your competitors — I'll track their rates to help you price smarter.
         </p>
         <p className="mt-2 text-[#52647a]">
-          Don't see a competitor? Use the search below to find and add any hotel.
+          Don't see the right hotels? Describe your competitive segment in the chat below (e.g. <em>"we compete with luxury boutique hotels in the city center"</em> or <em>"budget-friendly hotels near the train station"</em>) and I'll suggest a tailored list for you. You can also search and add individual hotels manually.
         </p>
       </KompasMessage>
       <InteractiveArea>

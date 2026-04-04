@@ -276,6 +276,33 @@ All subsequent rooms need offsetDirection, offsetType, and offsetValue relative 
       properties: { name: { type: 'string' } },
     },
   },
+  {
+    name: 'set_competitors',
+    description: `Replace the entire competitor list with a new set of hotels. Use this when the user describes their competitive segment (e.g. "luxury boutique hotels in central Paris", "budget hostels near the train station", "4-star business hotels in the financial district") and you want to suggest a curated list of competitors that match that segment.
+
+Generate 4-6 realistic competitor hotel names that fit the described segment and location. Include the city and an appropriate star rating for each.`,
+    input_schema: {
+      type: 'object',
+      required: ['competitors'],
+      properties: {
+        competitors: {
+          type: 'array',
+          items: {
+            type: 'object',
+            required: ['name'],
+            properties: {
+              name:  { type: 'string', description: 'Hotel name' },
+              city:  { type: 'string', description: 'City' },
+              stars: { type: 'number', description: 'Star rating 1-5' },
+              dist:  { type: 'string', description: 'Approximate distance, e.g. "0.5 km"' },
+            },
+          },
+          description: 'Array of competitor hotels matching the described segment',
+        },
+        segment: { type: 'string', description: 'The competitive segment description for context' },
+      },
+    },
+  },
 
   // ── PMS & channels ───────────────────────────────────────────────────────────
   {
@@ -426,7 +453,7 @@ export function buildSystemPrompt(data, currentStep, allSteps) {
     ratePlans:      'Help the user create rate plans. A root plan has its own floor price. Derived plans offset from a root. Use add_rate_plan for each they describe. Common plans: Flexible Rate, Non-Refundable (10-15% cheaper), Early Bird, Last Minute.',
     ota:            'Help connect distribution channels (Booking.com, Expedia, Airbnb, Agoda). Use connect_channel for each they confirm.',
     distribution:   'Help the user assign rate plans to channels. Use set_distribution for each assignment. Ask which plans should be visible on which channels.',
-    competitors:    'Ask which hotels they compete with directly. Aim for 3-5. Use add_competitor for each they name.',
+    competitors:    'Help the user build their competitive set. If they name specific hotels, use add_competitor for each. If they describe a segment or type of hotel they compete with (e.g. "luxury boutique hotels", "budget hotels near the airport", "4-star business hotels"), use set_competitors to generate 4-6 realistic competitor names matching that segment and location. Always ask what kind of hotels they see as their main competition. Aim for 3-6 competitors.',
     complete:       'Onboarding is done! Summarise what was set up and congratulate them.',
   }[stepId] || 'Help the user complete this step.'
 
@@ -745,6 +772,18 @@ export function executeTool(name, input, currentData) {
       if (idx === -1) return { data: d, result: { success: false, message: `No competitor matching "${input.name}"` } }
       const [rem] = d.competitors.splice(idx, 1)
       return { data: d, result: { success: true, message: `Removed "${rem.name}"` } }
+    }
+
+    case 'set_competitors': {
+      const newComps = (input.competitors || []).map((c, i) => ({
+        id: `segment-${Date.now()}-${i}`,
+        name: c.name,
+        city: c.city || '',
+        stars: c.stars || 0,
+        dist: c.dist || '',
+      }))
+      d.competitors = newComps
+      return { data: d, result: { success: true, message: `Set ${newComps.length} competitors for segment "${input.segment || 'custom'}"`, competitors: newComps.map(c => c.name) } }
     }
 
     // ── PMS ──────────────────────────────────────────────────────────────────

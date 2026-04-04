@@ -47,10 +47,13 @@ const initialState = {
 function reducer(state, action) {
   switch (action.type) {
     case 'SET_STEP':
-      return { ...state, currentStep: action.step, maxStep: Math.max(state.maxStep, action.step), isTyping: true, stepReady: false }
+      // Only allow navigating to completed steps or the current frontier (maxStep + 1)
+      if (action.step > state.maxStep + 1) return state
+      return { ...state, currentStep: action.step, isTyping: true, stepReady: false }
     case 'NEXT_STEP': {
       const next = state.currentStep + 1
-      return { ...state, currentStep: next, maxStep: Math.max(state.maxStep, next), isTyping: true, stepReady: false }
+      // maxStep tracks the highest step completed — the current step is now done
+      return { ...state, currentStep: next, maxStep: Math.max(state.maxStep, state.currentStep), isTyping: true, stepReady: false }
     }
     case 'SET_DATA':
       return { ...state, data: { ...state.data, [action.key]: action.value } }
@@ -106,7 +109,9 @@ export function OnboardingProvider({ children }) {
       const saved = localStorage.getItem(STORAGE_KEY)
       if (saved) {
         const parsed = JSON.parse(saved)
-        dispatch({ type: 'HYDRATE', payload: { currentStep: parsed.currentStep, maxStep: parsed.maxStep ?? parsed.currentStep, data: parsed.data } })
+        // maxStep = highest completed step; for old data where maxStep wasn't stored, derive from currentStep
+        const hydratedMax = parsed.maxStep ?? Math.max(0, (parsed.currentStep || 0) - 1)
+        dispatch({ type: 'HYDRATE', payload: { currentStep: parsed.currentStep, maxStep: hydratedMax, data: parsed.data } })
       }
     } catch (e) {
       // ignore

@@ -91,7 +91,8 @@ export default function Sidebar() {
           const Icon = ICONS[step.icon] || Settings
           const isComplete = i < currentStep
           const isCurrent = i === currentStep
-          const isReachable = i <= maxStep && !isCurrent
+          // maxStep = highest completed step; maxStep+1 = furthest you can go
+          const isReachable = i <= maxStep + 1 && !isCurrent
 
           return (
             <div
@@ -103,7 +104,7 @@ export default function Sidebar() {
                   ? 'bg-lh-brand-bg'
                   : isComplete
                   ? 'hover:bg-lh-border-light/60'
-                  : i <= maxStep
+                  : i <= maxStep + 1
                   ? 'hover:bg-lh-border-light/60'
                   : 'opacity-50'
               } ${isReachable ? 'cursor-pointer' : ''}`}

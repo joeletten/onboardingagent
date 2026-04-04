@@ -449,8 +449,8 @@ export default function Chat() {
               </svg>
             </button>
             <button
-              onClick={() => currentStep < maxStep && setStep(currentStep + 1)}
-              disabled={currentStep >= maxStep}
+              onClick={() => currentStep <= maxStep && setStep(currentStep + 1)}
+              disabled={currentStep > maxStep}
               className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors disabled:opacity-25 disabled:cursor-not-allowed text-[#52647a] hover:bg-[#f2f4f8] hover:text-[#1f2124]"
               aria-label="Next step"
             >
