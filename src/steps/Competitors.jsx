@@ -3,12 +3,43 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react'
 import { KompasMessage, InteractiveArea, PrimaryButton, Button, Input } from '../ui'
 import { useOnboarding, ContinuePortal } from '../OnboardingContext'
-import { getMockCompetitors } from '../mockData'
 
 export default function Competitors() {
   const { data, setData, nextStep } = useOnboarding()
   const city = data.property?.city || 'your area'
-  const suggested = useMemo(() => getMockCompetitors(city), [city])
+  const propertyName = data.property?.name || ''
+  const placeId = data.property?.placeId || ''
+
+  // ── Fetch nearby hotels from Google Places ───────────────────────────────
+  const [suggested, setSuggested] = useState([])
+  const [loadingSuggested, setLoadingSuggested] = useState(true)
+  const [suggestedError, setSuggestedError] = useState(false)
+  const fetchedRef = useRef(false)
+
+  useEffect(() => {
+    if (fetchedRef.current) return
+    fetchedRef.current = true
+
+    const fetchNearby = async () => {
+      setLoadingSuggested(true)
+      setSuggestedError(false)
+      try {
+        const params = new URLSearchParams()
+        if (placeId) params.set('placeId', placeId)
+        if (propertyName) params.set('name', propertyName)
+        const res = await fetch(`/api/nearby?${params.toString()}`)
+        if (!res.ok) throw new Error('Failed to fetch nearby hotels')
+        const json = await res.json()
+        setSuggested(Array.isArray(json) ? json : [])
+      } catch {
+        setSuggestedError(true)
+        setSuggested([])
+      } finally {
+        setLoadingSuggested(false)
+      }
+    }
+    fetchNearby()
+  }, [placeId, propertyName])
 
   // Custom competitors added via search
   const [custom, setCustom] = useState(() => {
@@ -119,18 +150,44 @@ export default function Competitors() {
   return (
     <>
       <KompasMessage>
-        <p>
-          I found some hotels near <strong>{data.property?.name || 'your property'}</strong> in {city}.
-          Pick the ones you consider your competitors — I'll track their rates to help you price smarter.
-        </p>
-        <p className="mt-2 text-[#52647a]">
-          Don't see the right hotels? Describe your competitive segment in the chat below (e.g. <em>"we compete with luxury boutique hotels in the city center"</em> or <em>"budget-friendly hotels near the train station"</em>) and I'll suggest a tailored list for you. You can also search and add individual hotels manually.
-        </p>
+        {loadingSuggested ? (
+          <p>Searching for hotels near <strong>{propertyName || 'your property'}</strong>…</p>
+        ) : suggested.length > 0 ? (
+          <>
+            <p>
+              I found <strong>{suggested.length} hotels</strong> near <strong>{propertyName || 'your property'}</strong> in {city}.
+              Pick the ones you consider your competitors — I'll track their rates to help you price smarter.
+            </p>
+            <p className="mt-2 text-[#52647a]">
+              Don't see the right hotels? Describe your competitive segment in the chat below (e.g. <em>"we compete with luxury boutique hotels in the city center"</em>) and I'll suggest a tailored list. You can also search and add individual hotels manually.
+            </p>
+          </>
+        ) : (
+          <>
+            <p>
+              {suggestedError
+                ? <>I couldn't load nearby hotels right now. You can search and add competitors manually below, or describe your segment in the chat.</>
+                : <>I didn't find hotels near <strong>{propertyName || 'your property'}</strong> automatically. Use the search below to find and add your competitors, or describe your segment in the chat.</>
+              }
+            </p>
+          </>
+        )}
       </KompasMessage>
       <InteractiveArea>
         <div className="max-w-lg space-y-2">
+
+          {/* Loading state */}
+          {loadingSuggested && (
+            <div className="flex items-center gap-3 py-8 justify-center">
+              <svg className="w-5 h-5 animate-spin text-[#125fe3]" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="31.4" strokeDashoffset="10" />
+              </svg>
+              <p className="text-[13px] text-[#a8b0bd]">Finding nearby hotels…</p>
+            </div>
+          )}
+
           {/* Suggested competitors */}
-          {suggested.map(comp => {
+          {!loadingSuggested && suggested.map(comp => {
             const isSelected = selected.has(comp.id)
             return (
               <button
