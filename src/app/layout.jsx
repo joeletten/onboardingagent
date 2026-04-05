@@ -3,6 +3,9 @@ import './globals.css'
 export const metadata = {
   title: 'Lighthouse — Onboarding',
   description: 'Hotel onboarding wizard powered by Lighthouse',
+  icons: {
+    icon: '/LH-symbol-orange_RGB.png',
+  },
 }
 
 export default function RootLayout({ children }) {
